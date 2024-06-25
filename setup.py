@@ -12,7 +12,6 @@ setup(
     install_requires=[
         "fastapi~=0.111.0",
         "requests~=2.32.3",
-        "pyngrok~=7.1.6",
         "uvicorn~=0.30.1",
         "xmltodict~=0.13.0",
     ],

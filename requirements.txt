@@ -1,0 +1,5 @@
+fastapi~=0.111.0
+requests~=2.32.3
+uvicorn~=0.30.1
+xmltodict~=0.13.0
+pylint~=3.2.3
