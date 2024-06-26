@@ -3,7 +3,7 @@
 </div>
 
 <blockquote align="center">
-    An easy-to-use library for YouTube push notification for video upload and update.
+    An easy-to-use library for receiving YouTube push notification for video upload and update.
 </blockquote>
 
 <div align="center">
