@@ -14,7 +14,7 @@ setup(
     packages=find_packages(),
     author="SeoulSKY",
     author_email="contact@seoulsky.org",
-    description="An easy-to-use library for receiving YouTube push notification for video upload and edit.",
+    description="Easy-to-use library for receiving YouTube push notification for video upload and edit.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[

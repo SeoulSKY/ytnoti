@@ -34,7 +34,7 @@ def main():
         logger.info("listener 2 called")
         logger.info(notification)
 
-    @notifier.upload(channel_ids=["UCupvZG-5ko_eiXAupbDfxWw"])
+    @notifier.upload(channel_ids="UCupvZG-5ko_eiXAupbDfxWw")
     @notifier.edit()
     async def listener3(notification: Notification):
         """

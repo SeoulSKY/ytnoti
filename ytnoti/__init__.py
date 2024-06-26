@@ -82,13 +82,13 @@ class YouTubeNotifier:
         with self._ready_lock:
             return self._is_ready
 
-    def listener(self, *, kind: NotificationKind, channel_ids: Iterable[str] = None) \
+    def listener(self, *, kind: NotificationKind, channel_ids: str | Iterable[str] = None) \
             -> Callable[[PushNotificationListener], PushNotificationListener]:
         """
         A decorator to add a listener for push notifications.
 
         :param kind: The kind of notification to listen for.
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         :raises ValueError: If the channel ID is '_all'.
@@ -101,39 +101,39 @@ class YouTubeNotifier:
 
         return decorator
 
-    def any(self, *, channel_ids: Iterable[str] = None) \
+    def any(self, *, channel_ids: str | Iterable[str] = None) \
             -> Callable[[PushNotificationListener], PushNotificationListener]:
         """
         A decorator to add a listener for any kind of push notification.
         Alias for @listener(kind=NotificationKind.ANY).
 
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
 
         return self.listener(kind=NotificationKind.ANY, channel_ids=channel_ids)
 
-    def upload(self, *, channel_ids: Iterable[str] = None) \
+    def upload(self, *, channel_ids: str | Iterable[str] = None) \
             -> Callable[[PushNotificationListener], PushNotificationListener]:
         """
         A decorator to add a listener for when a video is uploaded.
         Alies for @listener(kind=NotificationKind.UPLOAD).
 
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
 
         return self.listener(kind=NotificationKind.UPLOAD, channel_ids=channel_ids)
 
-    def edit(self, *, channel_ids: Iterable[str] = None) \
+    def edit(self, *, channel_ids: str | Iterable[str] = None) \
             -> Callable[[PushNotificationListener], PushNotificationListener]:
         """
         A decorator to add a listener for when a video is edited.
         Alies for @listener(kind=NotificationKind.EDIT).
 
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
@@ -143,13 +143,13 @@ class YouTubeNotifier:
     def add_listener(self,
                      func: PushNotificationListener,
                      kind: NotificationKind,
-                     channel_ids: Iterable[str] = None) -> Self:
+                     channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for push notifications.
 
         :param func: The listener function to add.
         :param kind: The kind of notification to listen for.
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         :raises ValueError: If the channel ID is '_all'.
@@ -160,6 +160,9 @@ class YouTubeNotifier:
             self._logger.debug("Added %s listener (%s) for all channels", kind.name, func.__name__)
             return self
 
+        if isinstance(channel_ids, str):
+            channel_ids = [channel_ids]
+
         for channel_id in channel_ids:
             if channel_id == self._ALL_LISTENER_KEY:
                 raise ValueError(f"Channel ID cannot be '{self._ALL_LISTENER_KEY}'")
@@ -169,52 +172,58 @@ class YouTubeNotifier:
 
         return self
 
-    def add_any_listener(self, func: PushNotificationListener, channel_ids: Iterable[str] = None) -> Self:
+    def add_any_listener(self, func: PushNotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for any kind of push notification.
         Alias for add_listener(func, NotificationKind.ANY, channel_ids).
 
         :param func: The listener function to add.
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
 
         return self.add_listener(func, NotificationKind.ANY, channel_ids)
 
-    def add_upload_listener(self, func: PushNotificationListener, channel_ids: Iterable[str] = None) -> Self:
+    def add_upload_listener(self, func: PushNotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for when a video is uploaded.
         Alias for add_listener(func, NotificationKind.UPLOAD, channel_ids).
 
         :param func: The listener function to add.
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
 
         return self.add_listener(func, NotificationKind.UPLOAD, channel_ids)
 
-    def add_edit_listener(self, func: PushNotificationListener, channel_ids: Iterable[str] = None) -> Self:
+    def add_edit_listener(self, func: PushNotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for when a video is edited.
         Alias for add_listener(func, NotificationKind.EDIT, channel_ids).
 
         :param func: The listener function to add.
-        :param channel_ids: The channel IDs to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
 
         return self.add_listener(func, NotificationKind.EDIT, channel_ids)
 
-    def subscribe(self, channel_ids: Iterable[str]) -> Self:
+    def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
         """
-        Subscribe to YouTube channels to receive push notifications.
+        Subscribe to YouTube channels to receive push notifications. This is lazy and will subscribe when the
+        notifier is ready. If the notifier is already ready, it will subscribe immediately.
 
-        :param channel_ids: The channel IDs to subscribe to.
+        :param channel_ids: The channel ID(s) to subscribe to.
         :return: The YouTubeNotifier instance to allow for method chaining.
+        :raises ValueError: If the channel ID is invalid.
+        :raises HTTPError: If failed to verify the channel ID or failed to subscribe due to an HTTP error.
         """
+
+        if isinstance(channel_ids, str):
+            channel_ids = [channel_ids]
 
         if not self.is_ready:
             self._subscribed.update(channel_ids)
@@ -325,7 +334,6 @@ class YouTubeNotifier:
 
             server.should_exit = True
 
-
         self._logger.debug("Currently registered listeners: %s", self._listeners)
 
         # Run the server in a separate thread to catch signals
@@ -363,8 +371,12 @@ class YouTubeNotifier:
                 self._logger.debug("Verifying channel id: %s", channel_id)
                 response = await client.get(f"https://www.youtube.com/channel/{channel_id}")
 
-                if response.status_code != HTTPStatus.OK.value:
+                if response.status_code != HTTPStatus.NOT_FOUND.value:
                     raise ValueError(f"Invalid channel ID: {channel_id}")
+                if response.status_code != HTTPStatus.OK.value:
+                    raise HTTPError(
+                        f"Failed to verify channel ID ({channel_id}) with status code {response.status_code}"
+                    )
 
                 self._logger.debug("Sending %s request for channel: %s", mode, channel_id)
                 response = await client.post(
@@ -382,7 +394,7 @@ class YouTubeNotifier:
                 )
 
             if response.status_code == HTTPStatus.CONFLICT.value and not await self._is_listening():
-                raise HTTPError(f"Cannot {mode} while the server is not listening")
+                raise ConnectionError(f"Cannot {mode} while the server is not listening")
 
             if response.status_code != HTTPStatus.NO_CONTENT.value:
                 raise HTTPError(f"Failed to {mode} channel ({channel_id}) with status code {response.status_code}")

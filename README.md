@@ -3,7 +3,7 @@
 </div>
 
 <blockquote align="center">
-    An easy-to-use library for receiving YouTube push notification for video upload and edit.
+    Easy-to-use library for receiving YouTube push notification for video upload and edit.
 </blockquote>
 
 <div align="center">
@@ -46,7 +46,7 @@ notifier = YouTubeNotifier()
 async def listener(notification: Notification):
     print(f"New video from {notification.channel.name}: {notification.video.title}")
 
-notifier.subscribe(["UC9EEyg7QBL-stRX-7hTV3ng"])  # Channel ID of SpeedyStyle
+notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
 notifier.run()
 ```
 
