@@ -286,7 +286,6 @@ class YouTubeNotifier:
             self._callback_url = ngrok.connect(str(port)).public_url
 
         self._callback_url = urljoin(self._callback_url, endpoint)
-
         self._logger.info("Callback URL: %s", self._callback_url)
 
         router = APIRouter()
@@ -325,6 +324,9 @@ class YouTubeNotifier:
                 asyncio.run(self._subscribe(self._subscribed, mode="unsubscribe"))
 
             server.should_exit = True
+
+
+        self._logger.debug("Currently registered listeners: %s", self._listeners)
 
         # Run the server in a separate thread to catch signals
         server_thread = Thread(target=server.run, daemon=True)

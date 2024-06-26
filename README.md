@@ -3,19 +3,19 @@
 </div>
 
 <blockquote align="center">
-    An easy-to-use library for receiving YouTube push notification for video upload and update.
+    An easy-to-use library for receiving YouTube push notification for video upload and edit.
 </blockquote>
 
 <div align="center">
-    <img src="https://img.shields.io/badge/Python-v3.11-blue">
-    <img src="https://img.shields.io/github/license/SeoulSKY/SoruSora">
-    <br>
+    <img src="https://img.shields.io/badge/Python-v3.11-blue?logo=python">
+    <a href="https://badge.fury.io/py/ytnoti"><img src="https://badge.fury.io/py/ytnoti.svg" alt="PyPI version"></a>
+    <!-- <img src="https://img.shields.io/pypi/dm/ytnoti"> -->
+    <img src="https://img.shields.io/github/license/SeoulSKY/ytnoti">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/pylint.yml/badge.svg">
-    <br>
 </div>
 
 `ytnoti` is designed to help you receive YouTube push notifications for video
-upload and update in an easy and efficient way.
+upload and edit in an easy and efficient way.
 
 # How it works
 

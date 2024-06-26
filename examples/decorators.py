@@ -1,5 +1,5 @@
 """
-This is a basic example of how to use the package to get notifications when a new video is uploaded or updated.
+This is an example of how to use decorators to listen to notifications.
 """
 
 
@@ -19,7 +19,7 @@ def main():
     @notifier.any()
     async def listener1(notification: Notification):
         """
-        Listener called when a video is uploaded or updated
+        Listener called when a video is uploaded or edited for any channel
         """
 
         logger.info("listener 1 called")
@@ -28,16 +28,17 @@ def main():
     @notifier.upload()
     async def listener2(notification: Notification):
         """
-        Listener called when a video on a specific channel is uploaded
+        Listener called when a video is uploaded for any channel
         """
 
         logger.info("listener 2 called")
         logger.info(notification)
 
+    @notifier.upload(channel_ids=["UCupvZG-5ko_eiXAupbDfxWw"])
     @notifier.edit()
     async def listener3(notification: Notification):
         """
-        Listener called when a video is edited on a specific channel
+        Listener called when a video is uploaded on a specific channel and when a video is edited on any channel
         """
 
         logger.info("listener 3 called")
