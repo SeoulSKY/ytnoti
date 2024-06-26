@@ -1,17 +1,35 @@
+"""
+This is a basic example of how to use the package to get notifications when a new video is uploaded or updated.
+"""
+
+
 import logging
 
-from youtube_push_notification import YouTubePushNotifier, PushNotification
+from ytnoti import YouTubeNotifier, Notification
+
+
+def main():
+    """
+    Main function
+    """
+
+    logger = logging.getLogger(__name__)
+    notifier = YouTubeNotifier()
+
+    @notifier.listener()
+    async def my_listener(notification: Notification):
+        """
+        Listener called when a video is uploaded or updated
+        """
+
+        logger.info("listener called for channel: %s", notification.channel.name)
+        logger.info(notification)
+
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    notifier.subscribe(["UCupvZG-5ko_eiXAupbDfxWw", "UChLtXXpo4Ge1ReTEboVvTDg"])
+    notifier.run()
+
 
 if __name__ == "__main__":
-    channel_ids = ["UCFilzPS-na0PF1Gi5lQNDng", "UCupvZG-5ko_eiXAupbDfxWw", "UChLtXXpo4Ge1ReTEboVvTDg"]
-
-    notifier = YouTubePushNotifier()
-
-    @notifier.listener(channel_ids=channel_ids)
-    async def listener(notification: PushNotification):
-        print("listener called for channel: ", notification.channel.name)
-        print(notification)
-
-
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    notifier.run()
+    main()

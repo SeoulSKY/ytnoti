@@ -1,26 +1,35 @@
+"""
+Setup script for ytnoti
+"""
+
+
 from setuptools import setup, find_packages
 
+with open("README.md", encoding="utf-8") as file:
+    long_description = file.read()
+
 setup(
-    name="youtube-push-notification",
+    name="ytnoti",
     version="0.1.0",
     packages=find_packages(),
     author="SeoulSKY",
     author_email="contact@seoulsky.org",
-    description="Youtube Push Notification",
-    long_description=open("README.md").read(),
+    description="An easy-to-use library for YouTube push notification for video upload and update.",
+    long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[
         "fastapi~=0.111.0",
-        "requests~=2.32.3",
+        "httpx~=0.27.0",
         "uvicorn~=0.30.1",
         "xmltodict~=0.13.0",
+        "pyngrok~=7.1.6",
     ],
-    url="https://github.com/SeoulSKY/youtube-push-notification",
+    url="https://github.com/SeoulSKY/ytnoti",
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    python_requires=">=3.11",
 )
