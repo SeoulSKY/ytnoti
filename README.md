@@ -57,7 +57,7 @@ Your question may already be answered there.
 
 # 👥 Community
 
-If you are having any problems with this library, please feel free to ask for help in the issues section or 
+If you are having any problems with using this library, please feel free to ask for help in the issues section or 
 on my Discord server.
 
 <a href="https://discord.gg/kQZDJJB">
