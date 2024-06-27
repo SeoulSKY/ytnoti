@@ -52,11 +52,13 @@ notifier.run()
 
 # 📚 Documentation
 
-Please read the [documentation](https://ytnoti.readthedocs.io/en/latest/) before asking questions.
+Please read the [documentation](https://ytnoti.readthedocs.io/en/latest/) before asking questions. 
+Your question may already be answered there.
 
 # 👥 Community
 
-If you have any questions about this library please visit my Discord server.
+If you are having any problems with this library, please feel free to ask for help in the issues section or 
+on my Discord server.
 
 <a href="https://discord.gg/kQZDJJB">
     <img alt="discord invite" src="http://invidget.switchblade.xyz/kQZDJJB">
