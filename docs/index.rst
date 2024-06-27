@@ -10,8 +10,8 @@ ytnoti
    :target: https://www.python.org/downloads/release/python-3110/
    :alt: Python version
 
-.. image:: https://badge.fury.io/py/ytnoti.svg
-    :target: https://badge.fury.io/py/ytnoti
+.. image:: https://img.shields.io/pypi/v/ytnoti.svg?color=brightgreen&logo=pypi&logoColor=yellow
+    :target: https://pypi.org/project/ytnoti/
     :alt: PyPI version
 
 .. image:: https://img.shields.io/pypi/dm/ytnoti

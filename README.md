@@ -8,7 +8,7 @@
 
 <div align="center">
     <img src="https://img.shields.io/badge/Python-v3.11-blue?logo=python">
-    <a href="https://badge.fury.io/py/ytnoti"><img src="https://badge.fury.io/py/ytnoti.svg" alt="PyPI version"></a>
+    <a href="https://pypi.org/project/ytnoti"><img src="https://img.shields.io/pypi/v/ytnoti.svg?color=brightgreen&logo=pypi&logoColor=yellow" alt="PyPI version"></a>
     <img src="https://img.shields.io/pypi/dm/ytnoti">
     <img src="https://img.shields.io/github/license/SeoulSKY/ytnoti">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/pylint.yml/badge.svg">
