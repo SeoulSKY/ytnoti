@@ -2,7 +2,7 @@
 This module defines Enum classes used in the package.
 
 Classes:
-- NotificationKind
+    NotificationKind
 """
 
 from enum import Enum

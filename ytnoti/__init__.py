@@ -15,13 +15,13 @@ import logging
 import random
 import signal
 import string
+from collections import OrderedDict
 from datetime import datetime
 from http import HTTPStatus
 from threading import Thread, Lock
 from typing import Self, Literal, Iterable, Any, Callable
 import hmac
 from urllib.parse import urljoin
-from collections import OrderedDict
 
 from httpx import AsyncClient, HTTPError
 import xmltodict
@@ -31,6 +31,7 @@ from pyngrok import ngrok
 from pyexpat import ExpatError
 
 from ytnoti.enums import NotificationKind
+from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.notification import Notification, Channel, Thumbnail, Video, Stats, Timestamp
 from ytnoti.types import PushNotificationListener, ReadyListener
 
@@ -42,24 +43,28 @@ class YouTubeNotifier:
 
     _ALL_LISTENER_KEY = "_all"
 
-    _PASSWORD = "".join(random.choice(string.ascii_letters) for _ in range(20))
-
-    _CACHE_SIZE = 5_000
-
-    def __init__(self, *, callback_url: str = None) -> None:
+    def __init__(self, *, callback_url: str = None, password: str = None, cache_size: int = 5000) -> None:
         """
         Create a new YouTubeNotifier instance.
+
         :param callback_url: The URL to receive push notifications. If not provided, ngrok will be used to create a
-        temporary URL.
+                             temporary URL.
+        :param password: The password to use for verifying push notifications. If not provided, a random password will
+                         be generated.
+        :param cache_size: The number of video IDs to keep in the cache to prevent duplicate notifications.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._callback_url = callback_url
+        self._config = YouTubeNotifierConfig(
+            callback_url,
+            password or str("".join(random.choice(string.ascii_letters) for _ in range(20))),
+            cache_size
+        )
         self._listeners: dict[NotificationKind, dict[str, list[PushNotificationListener]]] = \
             {kind: {} for kind in NotificationKind}
         self._is_ready = False
         self._ready_lock = Lock()
-        self._subscribed: set[str] = set()
+        self._subscribed_ids: set[str] = set()
         self._seen_video_ids: OrderedDict[str, None] = OrderedDict()
 
     @property
@@ -70,7 +75,7 @@ class YouTubeNotifier:
 
         :return: The callback URL.
         """
-        return self._callback_url
+        return self._config.callback_url
 
     @property
     def is_ready(self) -> bool:
@@ -226,10 +231,10 @@ class YouTubeNotifier:
             channel_ids = [channel_ids]
 
         if not self.is_ready:
-            self._subscribed.update(channel_ids)
+            self._subscribed_ids.update(channel_ids)
             return self
 
-        not_subscribed = set(channel_ids).difference(self._subscribed)
+        not_subscribed = set(channel_ids).difference(self._subscribed_ids)
         asyncio.get_running_loop().create_task(self._subscribe(not_subscribed))
 
         return self
@@ -242,7 +247,7 @@ class YouTubeNotifier:
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
 
-        if len(self._seen_video_ids) > self._CACHE_SIZE:
+        if len(self._seen_video_ids) > self._config.cache_size:
             self._seen_video_ids.popitem(last=False)
 
         self._seen_video_ids[video_id] = None
@@ -290,15 +295,15 @@ class YouTubeNotifier:
             app = FastAPI()
 
         is_ngrok = False
-        if self._callback_url is None:
+        if self._config.callback_url is None:
             is_ngrok = True
-            self._callback_url = ngrok.connect(str(port)).public_url
+            self._config.callback_url = ngrok.connect(str(port)).public_url
 
-        self._callback_url = urljoin(self._callback_url, endpoint)
-        self._logger.info("Callback URL: %s", self._callback_url)
+        self._config.callback_url = urljoin(self._config.callback_url, endpoint)
+        self._logger.info("Callback URL: %s", self._config.callback_url)
 
         router = APIRouter()
-        router.add_api_route(urljoin(endpoint, "health"), self._health, methods=["GET"])
+        router.add_api_route(urljoin(endpoint, "health"), self._health, methods=["HEAD", "GET"])
         router.add_api_route(endpoint, self._get, methods=["GET"])
         router.add_api_route(endpoint, self._post, methods=["POST"])
         app.include_router(router)
@@ -307,12 +312,12 @@ class YouTubeNotifier:
             while not await self._is_listening():
                 await asyncio.sleep(0.1)
 
-            await self._subscribe(self._subscribed)
+            await self._subscribe(self._subscribed_ids)
 
         async def repeat_subscribe(interval: float):
             while True:
                 await asyncio.sleep(interval)
-                await self._subscribe(self._subscribed)
+                await self._subscribe(self._subscribed_ids)
 
         app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
         app.add_event_handler("startup", lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24)))
@@ -330,7 +335,7 @@ class YouTubeNotifier:
             # It might not be matter though because ngrok generates unique URL every time, and the old URL will be
             # invalid.
             if not is_ngrok:
-                asyncio.run(self._subscribe(self._subscribed, mode="unsubscribe"))
+                asyncio.run(self._subscribe(self._subscribed_ids, mode="unsubscribe"))
 
             server.should_exit = True
 
@@ -355,7 +360,7 @@ class YouTubeNotifier:
 
         try:
             async with AsyncClient() as client:
-                response = await client.get(urljoin(self._callback_url, "health"))
+                response = await client.head(urljoin(self._config.callback_url, "health"))
         except ConnectionError:
             return False
 
@@ -366,27 +371,25 @@ class YouTubeNotifier:
         Subscribe or unsubscribe to YouTube channels to receive push notifications.
         """
 
+        async with AsyncClient() as client:
+            for channel_id in channel_ids:
+                response = await client.head(f"https://www.youtube.com/channel/{channel_id}")
+
+                if response.status_code != HTTPStatus.OK.value:
+                    raise ValueError(f"Invalid channel ID: {channel_id}")
+
         for channel_id in channel_ids:
             async with AsyncClient() as client:
-                self._logger.debug("Verifying channel id: %s", channel_id)
-                response = await client.get(f"https://www.youtube.com/channel/{channel_id}")
-
-                if response.status_code != HTTPStatus.NOT_FOUND.value:
-                    raise ValueError(f"Invalid channel ID: {channel_id}")
-                if response.status_code != HTTPStatus.OK.value:
-                    raise HTTPError(
-                        f"Failed to verify channel ID ({channel_id}) with status code {response.status_code}"
-                    )
-
                 self._logger.debug("Sending %s request for channel: %s", mode, channel_id)
+
                 response = await client.post(
                     "https://pubsubhubbub.appspot.com",
                     data={
                         "hub.mode": mode,
                         "hub.topic": f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}",
-                        "hub.callback": self._callback_url,
+                        "hub.callback": self._config.callback_url,
                         "hub.verify": "sync",
-                        "hub.secret": self._PASSWORD,
+                        "hub.secret": self._config.password,
                         "hub.lease_seconds": "",
                         "hub.verify_token": ""
                     },
@@ -444,6 +447,7 @@ class YouTubeNotifier:
                     id=body["feed"]["yt:channelId"],
                     name=entry["author"]["name"],
                     url=entry["author"]["uri"],
+                    created_at=datetime.strptime(body["feed"]["published"], "%Y-%m-%dT%H:%M:%S%z")
                 )
 
                 thumbnail = Thumbnail(
@@ -499,5 +503,5 @@ class YouTubeNotifier:
             return False
 
         algorithm, value = x_hub_signature.split("=")
-        hash_obj = hmac.new(self._PASSWORD.encode(), await request.body(), algorithm)
+        hash_obj = hmac.new(self._config.password.encode(), await request.body(), algorithm)
         return hmac.compare_digest(hash_obj.hexdigest(), value)

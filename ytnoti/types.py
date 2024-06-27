@@ -2,8 +2,8 @@
 This module contains type hints for the library.
 
 Types:
-- PushNotificationListener
-- ReadyListener
+    PushNotificationListener
+    ReadyListener
 """
 
 from typing import Callable, Coroutine, Any

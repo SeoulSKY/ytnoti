@@ -3,13 +3,13 @@
 </div>
 
 <blockquote align="center">
-    Easy-to-use library for receiving YouTube push notification for video upload and edit.
+    Easy-to-use python library for receiving YouTube push notification for video upload and edit
 </blockquote>
 
 <div align="center">
     <img src="https://img.shields.io/badge/Python-v3.11-blue?logo=python">
     <a href="https://badge.fury.io/py/ytnoti"><img src="https://badge.fury.io/py/ytnoti.svg" alt="PyPI version"></a>
-    <!-- <img src="https://img.shields.io/pypi/dm/ytnoti"> -->
+    <img src="https://img.shields.io/pypi/dm/ytnoti">
     <img src="https://img.shields.io/github/license/SeoulSKY/ytnoti">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/pylint.yml/badge.svg">
 </div>
@@ -17,7 +17,7 @@
 `ytnoti` is designed to help you receive YouTube push notifications for video
 upload and edit in an easy and efficient way.
 
-# How it works
+# 🛠️ How it works
 
 This library uses YouTube Data API v3 via 
 [PubSubHubbub](https://developers.google.com/youtube/v3/guides/push_notifications) to receive push 
@@ -25,7 +25,7 @@ notifications, so you can receive notifications in real-time without constantly 
 
 In addition, this method doesn't require any API key, so you can use this library **without any quota limit**.
 
-# Installation
+# 💻 Installation
 
 This library requires `Python 3.11` or higher.
 
@@ -33,7 +33,7 @@ This library requires `Python 3.11` or higher.
 pip install ytnoti
 ```
 
-# Simple Example
+# 📝 Simple Example
 
 For more examples, please visit the [examples](https://github.com/SeoulSKY/ytnoti/tree/main/examples) folder.
 
@@ -50,11 +50,11 @@ notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
 notifier.run()
 ```
 
-# Documentation
+# 📚 Documentation
 
 Read the [wiki](https://github.com/SeoulSKY/ytnoti/wiki) for more information.
 
-# Community
+# 👥 Community
 
 If you have any questions about this library please visit my Discord server.
 
@@ -62,6 +62,6 @@ If you have any questions about this library please visit my Discord server.
     <img alt="discord invite" src="http://invidget.switchblade.xyz/kQZDJJB">
 </a>
 
-# License
+# 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/SeoulSKY/ytnoti/blob/main/LICENSE.md) file for details.

@@ -2,12 +2,12 @@
 This module contains the dataclasses for the notification model.
 
 Classes:
-- Channel
-- Thumbnail
-- Stats
-- Timestamp
-- Video
-- Notification
+    Channel
+    Thumbnail
+    Stats
+    Timestamp
+    Video
+    Notification
 """
 
 from dataclasses import dataclass
@@ -28,6 +28,9 @@ class Channel:
 
     url: str
     """The URL of the channel"""
+
+    created_at: datetime
+    """The time when the channel was created"""
 
 
 @dataclass
