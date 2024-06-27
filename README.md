@@ -3,7 +3,7 @@
 </div>
 
 <blockquote align="center">
-    Easy-to-use python library for receiving YouTube push notification for video upload and edit
+    Easy-to-use Python library for receiving YouTube push notifications for video upload and edit
 </blockquote>
 
 <div align="center">
@@ -21,7 +21,7 @@ upload and edit in an easy and efficient way.
 
 This library uses YouTube Data API v3 via 
 [PubSubHubbub](https://developers.google.com/youtube/v3/guides/push_notifications) to receive push 
-notifications, so you can receive notifications in real-time without constantly polling the YouTube API.
+notifications, so you can receive notifications in real time without constantly polling the YouTube API.
 
 In addition, this method doesn't require any API key, so you can use this library **without any quota limit**.
 
