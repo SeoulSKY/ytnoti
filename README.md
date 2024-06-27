@@ -52,7 +52,7 @@ notifier.run()
 
 # 📚 Documentation
 
-Read the [wiki](https://github.com/SeoulSKY/ytnoti/wiki) for more information.
+Please read the [documentation](https://ytnoti.readthedocs.io/en/latest/) before asking questions.
 
 # 👥 Community
 
