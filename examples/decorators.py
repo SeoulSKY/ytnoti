@@ -14,7 +14,7 @@ def main():
     """
 
     logger = logging.getLogger(__name__)
-    notifier = YouTubeNotifier(callback_url="https://886a-2604-3d09-e074-e700-81a2-2a9f-2e54-8395.ngrok-free.app")
+    notifier = YouTubeNotifier()
 
     @notifier.any()
     async def listener1(notification: Notification):

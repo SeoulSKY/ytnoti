@@ -13,6 +13,7 @@ Classes:
 import asyncio
 import logging
 import random
+import socket
 import string
 import time
 from collections import OrderedDict
@@ -302,8 +303,7 @@ class YouTubeNotifier:
         """
 
         router = APIRouter()
-        router.add_api_route(urljoin(self._config.endpoint, "health"), self._health, methods=["HEAD", "GET"])
-        router.add_api_route(self._config.endpoint, self._get, methods=["GET"])
+        router.add_api_route(self._config.endpoint, self._get, methods=["HEAD", "GET"])
         router.add_api_route(self._config.endpoint, self._post, methods=["POST"])
 
         return router
@@ -429,7 +429,7 @@ class YouTubeNotifier:
 
         try:
             async with AsyncClient() as client:
-                response = await client.head(urljoin(self._config.callback_url, "health"))
+                response = await client.head(self._config.callback_url, params={"hub.challenge": "1"})
         except ConnectionError:
             return False
 
@@ -472,13 +472,6 @@ class YouTubeNotifier:
                 raise HTTPError(f"Failed to {mode} channel ({channel_id}) with status code {response.status_code}")
 
             self._logger.info("Successfully %sd channel: %s", mode, channel_id)
-
-    @staticmethod
-    async def _health():
-        """
-        Health check endpoint.
-        """
-        return Response()
 
     @staticmethod
     async def _get(request: Request):
