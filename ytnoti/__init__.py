@@ -13,12 +13,12 @@ Classes:
 import asyncio
 import logging
 import random
-import signal
 import string
+import time
 from collections import OrderedDict
 from datetime import datetime
 from http import HTTPStatus
-from threading import Thread, Lock
+from threading import Thread
 from typing import Self, Literal, Iterable, Any, Callable
 import hmac
 from urllib.parse import urljoin
@@ -43,7 +43,11 @@ class YouTubeNotifier:
 
     _ALL_LISTENER_KEY = "_all"
 
-    def __init__(self, *, callback_url: str = None, password: str = None, cache_size: int = 5000) -> None:
+    def __init__(self,
+                 *,
+                 callback_url: str = None,
+                 password: str = None,
+                 cache_size: int = 5000) -> None:
         """
         Create a new YouTubeNotifier instance.
 
@@ -57,15 +61,19 @@ class YouTubeNotifier:
         self._logger = logging.getLogger(self.__class__.__name__)
         self._config = YouTubeNotifierConfig(
             callback_url,
+            "/",
+            8000,
+            FastAPI(),
+            callback_url is None,
             password or str("".join(random.choice(string.ascii_letters) for _ in range(20))),
             cache_size
         )
         self._listeners: dict[NotificationKind, dict[str, list[PushNotificationListener]]] = \
             {kind: {} for kind in NotificationKind}
-        self._is_ready = False
-        self._ready_lock = Lock()
+        self._server = None
         self._subscribed_ids: set[str] = set()
         self._seen_video_ids: OrderedDict[str, None] = OrderedDict()
+        self._server: Server | None = None
 
     @property
     def callback_url(self) -> str | None:
@@ -84,8 +92,7 @@ class YouTubeNotifier:
 
         :return: True if the notifier is ready, False otherwise.
         """
-        with self._ready_lock:
-            return self._is_ready
+        return self._server is not None
 
     def listener(self, *, kind: NotificationKind, channel_ids: str | Iterable[str] = None) \
             -> Callable[[PushNotificationListener], PushNotificationListener]:
@@ -234,8 +241,14 @@ class YouTubeNotifier:
             self._subscribed_ids.update(channel_ids)
             return self
 
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+
         not_subscribed = set(channel_ids).difference(self._subscribed_ids)
-        asyncio.get_running_loop().create_task(self._subscribe(not_subscribed))
+        loop.run_until_complete(self._subscribe(not_subscribed))
+        self._subscribed_ids.update(channel_ids)
 
         return self
 
@@ -281,36 +294,64 @@ class YouTubeNotifier:
 
         return listeners
 
-    def run(self, *, port: int = 8000, endpoint: str = "/", app: FastAPI = None, **kwargs: Any) -> None:
+    def _get_router(self) -> APIRouter:
+        """
+        Get the FastAPI router for the notifier.
+
+        :return: The FastAPI router.
+        """
+
+        router = APIRouter()
+        router.add_api_route(urljoin(self._config.endpoint, "health"), self._health, methods=["HEAD", "GET"])
+        router.add_api_route(self._config.endpoint, self._get, methods=["GET"])
+        router.add_api_route(self._config.endpoint, self._post, methods=["POST"])
+
+        return router
+
+    def _get_server_config(self, log_level: int = logging.WARNING, **kwargs) -> Config:
+        """
+        Get the server configuration.
+
+        :param log_level: The log level to use for the uvicorn server.
+        :param kwargs: Additional arguments to pass to the server configuration.
+        :return: The server configuration.
+        """
+        return Config(self._config.app, "0.0.0.0", self._config.port, log_level=log_level, **kwargs)
+
+    def run(self,
+            *,
+            endpoint: str = "/",
+            port: int = 8000,
+            app: FastAPI = None,
+            log_level: int = logging.WARNING,
+            **kwargs: Any) -> None:
         """
         Run the notifier to receive push notifications. This method will block until the notifier is stopped.
 
-        :param port: The port to run the server on.
         :param endpoint: The endpoint to receive push notifications.
+        :param port: The port to run the server on.
         :param app: The FastAPI app to use. If not provided, a new app will be created.
+        :param log_level: The log level to use for the uvicorn server.
         :param kwargs: Additional arguments to pass to the server configuration.
         """
 
-        if app is None:
-            app = FastAPI()
+        self._config.endpoint = endpoint
+        self._config.port = port
+        self._config.app = app or self._config.app
 
-        is_ngrok = False
-        if self._config.callback_url is None:
-            is_ngrok = True
+        if self._config.using_ngrok:
             self._config.callback_url = ngrok.connect(str(port)).public_url
 
-        self._config.callback_url = urljoin(self._config.callback_url, endpoint)
+        self._config.callback_url = urljoin(self._config.callback_url, self._config.endpoint)
         self._logger.info("Callback URL: %s", self._config.callback_url)
 
-        router = APIRouter()
-        router.add_api_route(urljoin(endpoint, "health"), self._health, methods=["HEAD", "GET"])
-        router.add_api_route(endpoint, self._get, methods=["GET"])
-        router.add_api_route(endpoint, self._post, methods=["POST"])
-        app.include_router(router)
+        self._config.app.include_router(self._get_router())
 
         async def on_ready():
             while not await self._is_listening():
                 await asyncio.sleep(0.1)
+
+            self._server = server
 
             await self._subscribe(self._subscribed_ids)
 
@@ -319,37 +360,65 @@ class YouTubeNotifier:
                 await asyncio.sleep(interval)
                 await self._subscribe(self._subscribed_ids)
 
-        app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
-        app.add_event_handler("startup", lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24)))
+        self._config.app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
+        self._config.app.add_event_handler("startup",
+                                           lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24)))
 
-        config = Config(app, "0.0.0.0", port, log_level="warning", **kwargs)
-        server = Server(config)
-
-        sigint = False
-
-        def signal_handler(*_):
-            nonlocal sigint
-            sigint = True
-
-            # ngrok is already stopped at this point, so we can't unsubscribe if we are using ngrok.
-            # It might not be matter though because ngrok generates unique URL every time, and the old URL will be
-            # invalid.
-            if not is_ngrok:
-                asyncio.run(self._subscribe(self._subscribed_ids, mode="unsubscribe"))
-
-            server.should_exit = True
+        server = Server(self._get_server_config(log_level, **kwargs))
 
         self._logger.debug("Currently registered listeners: %s", self._listeners)
 
-        # Run the server in a separate thread to catch signals
-        server_thread = Thread(target=server.run, daemon=True)
-        server_thread.start()
-        signal.signal(signal.SIGINT, signal_handler)
+        try:
+            server.run()
+            self._clean_up(server)
+        except KeyboardInterrupt:
+            # KeyboardInterrupt occurs if run() is running in main thread.
+            # In this case, the server automatically stops, so we indicate here that the server is gone
+            self._clean_up(None)
 
-        while not sigint:
-            signal.pause()
+    def stop(self) -> None:
+        """
+        Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
+        This method will block until the notifier is stopped.
+        """
 
-        server_thread.join()
+        if self._server is None:
+            return
+
+        self._clean_up(self._server)
+
+    def _clean_up(self, server: Server | None) -> None:
+        """
+        Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
+        """
+
+        # ngrok is already stopped at this point, so we can't unsubscribe if we are using ngrok.
+        # It might not be matter though because ngrok generates unique URL every time, and the old URL will be invalid.
+        if self._config.using_ngrok:
+            return
+
+        async def unsubscribe():
+            while not await self._is_listening():
+                await asyncio.sleep(0.1)
+
+            await self._subscribe(self._subscribed_ids, mode="unsubscribe")
+            server.should_exit = True
+
+        self._config.app = FastAPI()
+        self._config.app.include_router(self._get_router())
+
+        if server is None:
+            # Run the server again to unsubscribe if there is no server running
+            server = Server(self._get_server_config())
+            thread = Thread(target=server.run)
+            thread.start()
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+
+        loop.run_until_complete(unsubscribe())
 
     async def _is_listening(self) -> bool:
         """
