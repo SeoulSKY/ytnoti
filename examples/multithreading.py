@@ -42,7 +42,7 @@ def main():
 
     async def listener2(notification: Notification):
         """
-        Listener called when a video is uploaded for any channel
+        Listener called when a video is uploaded or edited for any channel
         """
 
         logger.info("listener 2 called")
