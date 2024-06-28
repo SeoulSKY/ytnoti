@@ -10,7 +10,7 @@ with open("README.md", encoding="utf-8") as file:
 
 setup(
     name="ytnoti",
-    version="0.1.1",
+    version="0.1.2",
     packages=find_packages(),
     author="SeoulSKY",
     author_email="contact@seoulsky.org",
