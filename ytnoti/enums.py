@@ -1,8 +1,5 @@
 """
 This module defines Enum classes used in the package.
-
-Classes:
-    NotificationKind
 """
 
 from enum import Enum

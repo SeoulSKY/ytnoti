@@ -1,8 +1,5 @@
 """
 This module contains abstract base classes for the library.
-
-Classes:
-    BaseYouTubeNotifier
 """
 
 from abc import ABC
@@ -39,6 +36,7 @@ class BaseYouTubeNotifier(ABC):
     _ALL_LISTENER_KEY = "_all"
 
     def __init__(self,
+                 logger: logging.Logger,
                  *,
                  callback_url: str = None,
                  password: str = None,
@@ -46,6 +44,7 @@ class BaseYouTubeNotifier(ABC):
         """
         Create a new YouTubeNotifier instance.
 
+        :param logger: The logger to use for logging.
         :param callback_url: The URL to receive push notifications. If not provided, ngrok will be used to create a
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
@@ -53,7 +52,7 @@ class BaseYouTubeNotifier(ABC):
         :param cache_size: The number of video IDs to keep in the cache to prevent duplicate notifications.
         """
 
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self.__logger = logger
         self._config = YouTubeNotifierConfig(
             callback_url,
             "/",
@@ -78,6 +77,7 @@ class BaseYouTubeNotifier(ABC):
 
         :return: The callback URL.
         """
+
         return self._config.callback_url
 
     @property
@@ -164,7 +164,7 @@ class BaseYouTubeNotifier(ABC):
 
         if channel_ids is None:
             self._get_listeners(kind, None).append(func)
-            self._logger.debug("Added %s listener (%s) for all channels", kind.name, func.__name__)
+            self.__logger.debug("Added %s listener (%s) for all channels", kind.name, func.__name__)
             return self
 
         if isinstance(channel_ids, str):
@@ -175,7 +175,7 @@ class BaseYouTubeNotifier(ABC):
                 raise ValueError(f"Channel ID cannot be '{self._ALL_LISTENER_KEY}'")
 
             self._get_listeners(kind, channel_id).append(func)
-            self._logger.debug("Added %s listener (%s) for channel: %s", kind.name,func.__name__, channel_id)
+            self.__logger.debug("Added %s listener (%s) for channel: %s", kind.name, func.__name__, channel_id)
 
         return self
 
@@ -290,7 +290,6 @@ class BaseYouTubeNotifier(ABC):
                app: FastAPI = None,
                log_level: int = logging.WARNING,
                **kwargs: Any) -> Server:
-
         """
         Create a server instance to receive push notifications.
 
@@ -310,7 +309,7 @@ class BaseYouTubeNotifier(ABC):
             self._config.callback_url = ngrok.connect(str(port)).public_url
 
         self._config.callback_url = urljoin(self._config.callback_url, self._config.endpoint)
-        self._logger.info("Callback URL: %s", self._config.callback_url)
+        self.__logger.info("Callback URL: %s", self._config.callback_url)
 
         self._config.app.include_router(self._get_router())
 
@@ -320,12 +319,12 @@ class BaseYouTubeNotifier(ABC):
 
             self._server = server
 
-            await self._subscribe(self._subscribed_ids)
+            await self._register(self._subscribed_ids)
 
         async def repeat_subscribe(interval: float):
             while True:
                 await asyncio.sleep(interval)
-                await self._subscribe(self._subscribed_ids)
+                await self._register(self._subscribed_ids)
 
         self._config.app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
         self._config.app.add_event_handler("startup",
@@ -349,7 +348,29 @@ class BaseYouTubeNotifier(ABC):
 
         return response.status_code == HTTPStatus.OK.value
 
-    async def _subscribe(self, channel_ids: Iterable[str], *, mode: Literal["subscribe", "unsubscribe"] = "subscribe"):
+    async def _subscribe(self, channel_ids: str | Iterable[str]) -> None:
+        """
+        Subscribe to YouTube channels to receive push notifications. This is lazy and will subscribe when the
+        notifier is ready. If the notifier is already ready, it will subscribe immediately.
+
+        :param channel_ids: The channel ID(s) to subscribe to.
+        :raises ValueError: If the channel ID is invalid.
+        :raises HTTPError: If failed to verify the channel ID or failed to subscribe due to an HTTP error.
+        """
+
+        if isinstance(channel_ids, str):
+            channel_ids = [channel_ids]
+
+        if not self.is_ready:
+            self._subscribed_ids.update(channel_ids)
+
+        not_subscribed = set(channel_ids).difference(self._subscribed_ids)
+        await self._register(not_subscribed)
+
+    async def _register(self,
+                        channel_ids: Iterable[str],
+                        *,
+                        mode: Literal["subscribe", "unsubscribe"] = "subscribe") -> None:
         """
         Subscribe or unsubscribe to YouTube channels to receive push notifications.
         """
@@ -363,7 +384,7 @@ class BaseYouTubeNotifier(ABC):
 
         for channel_id in channel_ids:
             async with AsyncClient() as client:
-                self._logger.debug("Sending %s request for channel: %s", mode, channel_id)
+                self.__logger.debug("Sending %s request for channel: %s", mode, channel_id)
 
                 response = await client.post(
                     "https://pubsubhubbub.appspot.com",
@@ -385,14 +406,24 @@ class BaseYouTubeNotifier(ABC):
             if response.status_code != HTTPStatus.NO_CONTENT.value:
                 raise HTTPError(f"Failed to {mode} channel ({channel_id}) with status code {response.status_code}")
 
-            self._logger.info("Successfully %sd channel: %s", mode, channel_id)
+            self.__logger.info("Successfully %sd channel: %s", mode, channel_id)
 
-    async def _clean_up(self, server: Server | None) -> None:
+    async def _stop(self) -> None:
         """
         Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
         """
 
-        self._logger.debug("Cleaning up")
+        if self._server is None:
+            return
+
+        await self._clean_up(self._server)
+
+    async def _clean_up(self, server: Server | None) -> None:
+        """
+        Clean up the notifier.
+        """
+
+        self.__logger.debug("Cleaning up the notifier")
 
         # ngrok is already stopped at this point, so we can't unsubscribe if we are using ngrok.
         # It might not be matter though because ngrok generates unique URL every time, and the old URL will be invalid.
@@ -403,7 +434,7 @@ class BaseYouTubeNotifier(ABC):
         self._config.app.include_router(self._get_router())
 
         if server is None:
-            self._logger.debug("Temporarily running the server to unsubscribe the YouTube channels")
+            self.__logger.debug("Temporarily running the server to unsubscribe the YouTube channels")
             # Run the server again to unsubscribe if there is no server running
             server = Server(self._get_server_config())
             thread = Thread(target=server.run)
@@ -412,7 +443,7 @@ class BaseYouTubeNotifier(ABC):
         while not await self._is_listening():
             await asyncio.sleep(0.1)
 
-        await self._subscribe(self._subscribed_ids, mode="unsubscribe")
+        await self._register(self._subscribed_ids, mode="unsubscribe")
 
         server.should_exit = True
         while await self._is_listening():
@@ -443,7 +474,7 @@ class BaseYouTubeNotifier(ABC):
         except ExpatError:
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)
 
-        self._logger.debug("Received push notification: %s", body)
+        self.__logger.debug("Received push notification: %s", body)
 
         try:
             # entry can be list of dict or just dict
@@ -451,7 +482,7 @@ class BaseYouTubeNotifier(ABC):
 
             for entry in entries:
                 channel = Channel(
-                    id=body["feed"]["yt:channelId"],
+                    id=entry["yt:channelId"],
                     name=entry["author"]["name"],
                     url=entry["author"]["uri"],
                     created_at=datetime.strptime(body["feed"]["published"], "%Y-%m-%dT%H:%M:%S%z")
@@ -498,7 +529,7 @@ class BaseYouTubeNotifier(ABC):
 
                 self._mark_as_seen(video.id)
         except (TypeError, KeyError, ValueError):
-            self._logger.exception("Failed to parse request body: %s", body)
+            self.__logger.exception("Failed to parse request body: %s", body)
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)
 
         return Response(status_code=HTTPStatus.NO_CONTENT.value)

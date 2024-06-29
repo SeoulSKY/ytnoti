@@ -42,11 +42,13 @@ from ytnoti import YouTubeNotifier, Notification
 
 notifier = YouTubeNotifier()
 
+
 @notifier.upload()
 async def listener(notification: Notification):
     print(f"New video from {notification.channel.name}: {notification.video.title}")
 
-notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+
+notifier._subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
 notifier.run()
 ```
 
