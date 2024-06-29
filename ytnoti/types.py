@@ -8,7 +8,7 @@ Types:
 
 from typing import Callable, Coroutine, Any
 
-from ytnoti import Notification
+from ytnoti.models.notification import Notification
 
 PushNotificationListener = Callable[[Notification], Coroutine[Any, Any, Any]]
 
