@@ -3,8 +3,6 @@ This is an example of how to use decorators to listen to notifications.
 """
 
 
-import logging
-
 from ytnoti import YouTubeNotifier, Notification
 
 
@@ -13,7 +11,6 @@ def main():
     Main function
     """
 
-    logger = logging.getLogger(__name__)
     notifier = YouTubeNotifier()
 
     @notifier.any()
@@ -22,8 +19,8 @@ def main():
         Listener called when a video is uploaded or edited for any channel
         """
 
-        logger.info("listener 1 called")
-        logger.info(notification)
+        print("listener 1 called")
+        print(notification)
 
     @notifier.upload()
     async def listener2(notification: Notification):
@@ -31,8 +28,8 @@ def main():
         Listener called when a video is uploaded for any channel
         """
 
-        logger.info("listener 2 called")
-        logger.info(notification)
+        print("listener 2 called")
+        print(notification)
 
     @notifier.upload(channel_ids="UCupvZG-5ko_eiXAupbDfxWw")
     @notifier.edit()
@@ -41,10 +38,8 @@ def main():
         Listener called when a video is uploaded on a specific channel and when a video is edited on any channel
         """
 
-        logger.info("listener 3 called")
-        logger.info(notification)
-
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        print("listener 3 called")
+        print(notification)
 
     notifier.subscribe(["UCupvZG-5ko_eiXAupbDfxWw", "UChLtXXpo4Ge1ReTEboVvTDg"])
     notifier.run()
