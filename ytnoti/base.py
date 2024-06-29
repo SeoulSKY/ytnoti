@@ -363,9 +363,12 @@ class BaseYouTubeNotifier(ABC):
 
         if not self.is_ready:
             self._subscribed_ids.update(channel_ids)
+            return
 
         not_subscribed = set(channel_ids).difference(self._subscribed_ids)
         await self._register(not_subscribed)
+
+        self._subscribed_ids.update(not_subscribed)
 
     async def _register(self,
                         channel_ids: Iterable[str],
@@ -408,19 +411,25 @@ class BaseYouTubeNotifier(ABC):
 
             self.__logger.info("Successfully %sd channel: %s", mode, channel_id)
 
-    async def _stop(self) -> None:
+    async def _stop(self, *, server_mode: Literal["run", "serve"]) -> None:
         """
         Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
+
+        :param server_mode: The mode the server was running in.
         """
 
-        if self._server is None:
+        if not self.is_ready:
             return
 
-        await self._clean_up(self._server)
+        await self._clean_up(running_server=self._server, server_mode=server_mode)
+        self._server = None
 
-    async def _clean_up(self, server: Server | None) -> None:
+    async def _clean_up(self, *, running_server: Server | None, server_mode: Literal["run", "serve"]) -> None:
         """
         Clean up the notifier.
+        
+        :param running_server: The running server instance, or None if the server is not running.
+        :param server_mode: The mode the server is or was running in.
         """
 
         self.__logger.debug("Cleaning up the notifier")
@@ -433,21 +442,21 @@ class BaseYouTubeNotifier(ABC):
         self._config.app = FastAPI()
         self._config.app.include_router(self._get_router())
 
-        if server is None:
+        if running_server is None:
             self.__logger.debug("Temporarily running the server to unsubscribe the YouTube channels")
-            # Run the server again to unsubscribe if there is no server running
-            server = Server(self._get_server_config())
-            thread = Thread(target=server.run)
-            thread.start()
+            # Run the server again to unsubscribe
+            running_server = Server(self._get_server_config())
+            if server_mode == "run":
+                Thread(target=running_server.run).start()
+            else:
+                _ = asyncio.create_task(running_server.serve())
 
         while not await self._is_listening():
             await asyncio.sleep(0.1)
 
         await self._register(self._subscribed_ids, mode="unsubscribe")
 
-        server.should_exit = True
-        while await self._is_listening():
-            await asyncio.sleep(0.1)
+        await running_server.shutdown()
 
     @staticmethod
     async def _get(request: Request):

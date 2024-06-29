@@ -5,6 +5,7 @@ notifications when new videos are uploaded or old videos are updated.
 
 import asyncio
 import logging
+import signal
 from typing import Self, Iterable, Any, Coroutine
 
 from fastapi import FastAPI
@@ -76,7 +77,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         except KeyboardInterrupt:
             # KeyboardInterrupt occurs if run() is running in main thread.
             # In this case, the server automatically stops, so we indicate here that the server is gone
-            self._run_coroutine(super()._clean_up(None))
+            self._run_coroutine(super()._clean_up(running_server=None, server_mode="run"))
         else:
             self.stop()
 
@@ -89,7 +90,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         if self._server is None:
             return
 
-        self._run_coroutine(super()._stop())
+        self._run_coroutine(super()._stop(server_mode="run"))
 
     @staticmethod
     def _run_coroutine(coro: Coroutine[Any, Any, T]) -> T:
@@ -119,7 +120,7 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
                  password: str = None,
                  cache_size: int = 5000) -> None:
         """
-        Create a new YouTubeNotifier instance.
+        Create a new AsyncYouTubeNotifier instance.
 
         :param callback_url: The URL to receive push notifications. If not provided, ngrok will be used to create a
                              temporary URL.
@@ -155,17 +156,30 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         :param app: The FastAPI app instance to use. If not provided, a new instance will be created.
         :param log_level: The log level to use for the logger.
         :param kwargs: Additional keyword arguments to pass to the FastAPI app.
+
+        :raises RuntimeError: If the method is not called from a running event loop.
         """
 
+        try:
+            _ = asyncio.get_running_loop()
+        except RuntimeError as ex:
+            raise RuntimeError("serve() must be called from a running event loop") from ex
+
         server = super()._setup(endpoint=endpoint, port=port, app=app, log_level=log_level, **kwargs)
+
+        old_signal_handler = signal.getsignal(signal.SIGINT)
+
+        async def signal_handler():
+            await self._clean_up(running_server=None, server_mode="serve")
+
+            signal.signal(signal.SIGINT, old_signal_handler)
+            signal.raise_signal(signal.SIGINT)
+
+        signal.signal(signal.SIGINT, lambda sig, frame: asyncio.create_task(signal_handler()))
 
         try:
             await server.serve()
         except KeyboardInterrupt:
-            # KeyboardInterrupt occurs if run() is running in main thread.
-            # In this case, the server automatically stops, so we indicate here that the server is gone
-            await super()._clean_up(None)
-        else:
             await self.stop()
 
     async def stop(self) -> None:
@@ -173,4 +187,4 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
         """
 
-        await super()._stop()
+        await super()._stop(server_mode="serve")

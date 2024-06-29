@@ -82,8 +82,9 @@ class MyClient(discord.Client):
 
 if __name__ == "__main__":
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    LOG_LEVEL = logging.DEBUG
+    LOG_LEVEL = logging.INFO
     logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
 
     client = MyClient()
-    client.run("token", log_formatter=logging.Formatter(LOG_FORMAT), log_level=LOG_LEVEL)
+
+    client.run("Enter your token here", log_formatter=logging.Formatter(LOG_FORMAT), log_level=LOG_LEVEL)
