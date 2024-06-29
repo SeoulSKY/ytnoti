@@ -29,6 +29,7 @@ class MyClient(discord.Client):
         self._notifier = AsyncYouTubeNotifier()
         self._listeners: dict[str, list[TextChannel]] = {}
 
+        @self._notifier.upload()
         async def listener(notification: Notification) -> None:
             """
             Listener called when a video is uploaded
@@ -37,8 +38,6 @@ class MyClient(discord.Client):
             channels = self._listeners[notification.channel.id]
             for channel in channels:
                 await channel.send(f"{notification.channel.name} uploaded a [new video]({notification.video.url})")
-
-        self._notifier.add_upload_listener(listener)
 
     async def on_ready(self) -> None:
         """
