@@ -241,6 +241,9 @@ class BaseYouTubeNotifier(ABC):
         :return: The kind of notification.
         """
 
+        if notification.video.timestamp.updated == notification.video.timestamp.published:
+            return NotificationKind.UPLOAD
+
         return NotificationKind.EDIT if notification.video.id in self._seen_video_ids else NotificationKind.UPLOAD
 
     def _get_listeners(self, kind: NotificationKind, channel_id: str | None) -> list[PushNotificationListener]:
@@ -519,7 +522,7 @@ class BaseYouTubeNotifier(ABC):
                 video = Video(
                     id=entry["yt:videoId"],
                     title=entry["title"],
-                    description=entry["media:group"]["media:description"],
+                    description=entry["media:group"]["media:description"] or "",
                     url=entry["link"]["@href"],
                     thumbnail=thumbnail,
                     stats=stats,
