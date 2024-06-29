@@ -48,7 +48,7 @@ async def listener(notification: Notification):
     print(f"New video from {notification.channel.name}: {notification.video.title}")
 
 
-notifier._subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
 notifier.run()
 ```
 
