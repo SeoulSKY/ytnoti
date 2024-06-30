@@ -526,7 +526,8 @@ class BaseYouTubeNotifier(ABC):
                     url=entry["link"]["@href"],
                     thumbnail=thumbnail,
                     stats=stats,
-                    timestamp=timestamp
+                    timestamp=timestamp,
+                    channel=channel
                 )
 
                 notification = Notification(channel, video)

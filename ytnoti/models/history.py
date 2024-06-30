@@ -4,7 +4,7 @@ This module contains the video history model.
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from os import PathLike
+from pathlib import Path
 
 from ytnoti.models.notification import Video
 
@@ -75,23 +75,38 @@ class FileVideoHistory(VideoHistory):
     Represents a file-based history of videos.
     """
 
-    def __init__(self, path: PathLike[str]) -> None:
+    def __init__(self, dir_path: Path) -> None:
         """
         Create a new FileVideoHistory instance.
 
-        :param path: The path to the file to store the history.
+        :param dir_path: The path to the directory to store the history files
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._path = path
+        self._dir_path = dir_path
+
+    def _get_path(self, video: Video) -> Path:
+        """
+        Get the path to the history file for a channel.
+        """
+
+        return self._dir_path / video.channel.id
 
     async def add(self, video: Video) -> None:
-        with open(self._path, "a", encoding="utf-8") as file:
-            self._logger.debug("Adding video (%s) to history", video.id)
+        self._dir_path.mkdir(exist_ok=True)
+
+        path = self._get_path(video)
+
+        with open(path, "a", encoding="utf-8") as file:
+            self._logger.debug("Adding video (%s) to history at %s", video.id, path)
             file.write(f"{video.id}\n")
 
     async def has(self, video: Video) -> bool:
-        with open(self._path, "r", encoding="utf-8") as file:
+        path = self._get_path(video)
+        if not path.exists():
+            return False
+
+        with open(path, "r", encoding="utf-8") as file:
             for line in file:
                 if line.strip() == video.id:
                     return True

@@ -81,6 +81,8 @@ class Video:
     Represents a YouTube video
     """
 
+    # pylint: disable=too-many-instance-attributes
+
     id: str
     """The unique ID of the video"""
 
@@ -101,6 +103,9 @@ class Video:
 
     timestamp: Timestamp
     """The timestamps of the video"""
+
+    channel: Channel
+    """The channel of the video"""
 
 
 @dataclass
