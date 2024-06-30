@@ -23,6 +23,7 @@ setup(
         "uvicorn~=0.30.1",
         "xmltodict~=0.13.0",
         "pyngrok~=7.1.6",
+        "aiofiles~=24.1.0",
     ],
     url="https://github.com/SeoulSKY/ytnoti",
     license="MIT",

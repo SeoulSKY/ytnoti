@@ -1,13 +1,5 @@
 """
-This module contains the dataclasses for the notification model.
-
-Classes:
-    Channel
-    Thumbnail
-    Stats
-    Timestamp
-    Video
-    Notification
+This module contains the dataclasses for the video model.
 """
 
 from dataclasses import dataclass
@@ -106,16 +98,3 @@ class Video:
 
     channel: Channel
     """The channel of the video"""
-
-
-@dataclass
-class Notification:
-    """
-    Represents a notification
-    """
-
-    channel: Channel
-    """The channel of the notification"""
-
-    video: Video
-    """The video of the notification"""

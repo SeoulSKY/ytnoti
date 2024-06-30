@@ -4,10 +4,8 @@ This module contains type hints for the library.
 
 from typing import Callable, Coroutine, Any, TypeVar
 
-from ytnoti.models.notification import Notification
+from ytnoti.models.video import Video
 
-PushNotificationListener = Callable[[Notification], Coroutine[Any, Any, Any]]
-
-ReadyListener = Callable[[], Coroutine[Any, Any, Any]]
+NotificationListener = Callable[[Video], Coroutine[Any, Any, Any]]
 
 T = TypeVar("T")

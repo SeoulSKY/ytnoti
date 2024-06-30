@@ -38,14 +38,14 @@ pip install ytnoti
 For more examples, please visit the [examples](https://github.com/SeoulSKY/ytnoti/tree/main/examples) folder.
 
 ```python
-from ytnoti import YouTubeNotifier, Notification
+from ytnoti import YouTubeNotifier, Video
 
 notifier = YouTubeNotifier()
 
 
 @notifier.upload()
-async def listener(notification: Notification):
-    print(f"New video from {notification.channel.name}: {notification.video.title}")
+async def listener(video: Video):
+    print(f"New video from {video.channel.name}: {video.title}")
 
 
 notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle

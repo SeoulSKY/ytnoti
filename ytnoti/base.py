@@ -2,12 +2,11 @@
 This module contains abstract base classes for the library.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 import asyncio
 import logging
 import random
 import string
-from collections import OrderedDict
 from datetime import datetime
 from http import HTTPStatus
 from threading import Thread
@@ -22,10 +21,11 @@ from uvicorn import Config, Server
 from pyngrok import ngrok
 from pyexpat import ExpatError
 
-from ytnoti.enums import NotificationKind
+from ytnoti.enums import NotificationKind, ServerMode
 from ytnoti.models import YouTubeNotifierConfig
-from ytnoti.models.notification import Notification, Channel, Thumbnail, Video, Stats, Timestamp
-from ytnoti.types import PushNotificationListener
+from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
+from ytnoti.models.video import Channel, Thumbnail, Video, Stats, Timestamp
+from ytnoti.types import NotificationListener
 
 
 class BaseYouTubeNotifier(ABC):
@@ -40,7 +40,7 @@ class BaseYouTubeNotifier(ABC):
                  *,
                  callback_url: str = None,
                  password: str = None,
-                 cache_size: int = 5000) -> None:
+                 video_history: VideoHistory = None) -> None:
         """
         Create a new YouTubeNotifier instance.
 
@@ -49,7 +49,8 @@ class BaseYouTubeNotifier(ABC):
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
                          be generated.
-        :param cache_size: The number of video IDs to keep in the cache to prevent duplicate notifications.
+        :param video_history: The video history to use. If not provided, an in-memory history will be used. The history
+                              is used to prevent duplicate notifications.
         """
 
         self.__logger = logger
@@ -60,14 +61,22 @@ class BaseYouTubeNotifier(ABC):
             FastAPI(),
             callback_url is None,
             password or str("".join(random.choice(string.ascii_letters) for _ in range(20))),
-            cache_size
         )
-        self._listeners: dict[NotificationKind, dict[str, list[PushNotificationListener]]] = \
+        self._listeners: dict[NotificationKind, dict[str, list[NotificationListener]]] = \
             {kind: {} for kind in NotificationKind}
         self._server = None
         self._subscribed_ids: set[str] = set()
-        self._seen_video_ids: OrderedDict[str, None] = OrderedDict()
+        self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
+
+    @staticmethod
+    @abstractmethod
+    def _get_server_mode() -> ServerMode:
+        """
+        Get the server mode to run the server in.
+
+        :return: The server mode.
+        """
 
     @property
     def callback_url(self) -> str | None:
@@ -90,7 +99,7 @@ class BaseYouTubeNotifier(ABC):
         return self._server is not None
 
     def listener(self, *, kind: NotificationKind, channel_ids: str | Iterable[str] = None) \
-            -> Callable[[PushNotificationListener], PushNotificationListener]:
+            -> Callable[[NotificationListener], NotificationListener]:
         """
         A decorator to add a listener for push notifications.
 
@@ -101,7 +110,7 @@ class BaseYouTubeNotifier(ABC):
         :raises ValueError: If the channel ID is '_all'.
         """
 
-        def decorator(func: PushNotificationListener) -> PushNotificationListener:
+        def decorator(func: NotificationListener) -> NotificationListener:
             self.add_listener(func, kind, channel_ids)
 
             return func
@@ -109,7 +118,7 @@ class BaseYouTubeNotifier(ABC):
         return decorator
 
     def any(self, *, channel_ids: str | Iterable[str] = None) \
-            -> Callable[[PushNotificationListener], PushNotificationListener]:
+            -> Callable[[NotificationListener], NotificationListener]:
         """
         A decorator to add a listener for any kind of push notification.
         Alias for @listener(kind=NotificationKind.ANY).
@@ -122,7 +131,7 @@ class BaseYouTubeNotifier(ABC):
         return self.listener(kind=NotificationKind.ANY, channel_ids=channel_ids)
 
     def upload(self, *, channel_ids: str | Iterable[str] = None) \
-            -> Callable[[PushNotificationListener], PushNotificationListener]:
+            -> Callable[[NotificationListener], NotificationListener]:
         """
         A decorator to add a listener for when a video is uploaded.
         Alies for @listener(kind=NotificationKind.UPLOAD).
@@ -135,7 +144,7 @@ class BaseYouTubeNotifier(ABC):
         return self.listener(kind=NotificationKind.UPLOAD, channel_ids=channel_ids)
 
     def edit(self, *, channel_ids: str | Iterable[str] = None) \
-            -> Callable[[PushNotificationListener], PushNotificationListener]:
+            -> Callable[[NotificationListener], NotificationListener]:
         """
         A decorator to add a listener for when a video is edited.
         Alies for @listener(kind=NotificationKind.EDIT).
@@ -148,7 +157,7 @@ class BaseYouTubeNotifier(ABC):
         return self.listener(kind=NotificationKind.EDIT, channel_ids=channel_ids)
 
     def add_listener(self,
-                     func: PushNotificationListener,
+                     func: NotificationListener,
                      kind: NotificationKind,
                      channel_ids: str | Iterable[str] = None) -> Self:
         """
@@ -179,7 +188,7 @@ class BaseYouTubeNotifier(ABC):
 
         return self
 
-    def add_any_listener(self, func: PushNotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
+    def add_any_listener(self, func: NotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for any kind of push notification.
         Alias for add_listener(func, NotificationKind.ANY, channel_ids).
@@ -192,7 +201,7 @@ class BaseYouTubeNotifier(ABC):
 
         return self.add_listener(func, NotificationKind.ANY, channel_ids)
 
-    def add_upload_listener(self, func: PushNotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
+    def add_upload_listener(self, func: NotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for when a video is uploaded.
         Alias for add_listener(func, NotificationKind.UPLOAD, channel_ids).
@@ -205,7 +214,7 @@ class BaseYouTubeNotifier(ABC):
 
         return self.add_listener(func, NotificationKind.UPLOAD, channel_ids)
 
-    def add_edit_listener(self, func: PushNotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
+    def add_edit_listener(self, func: NotificationListener, channel_ids: str | Iterable[str] = None) -> Self:
         """
         Add a listener for when a video is edited.
         Alias for add_listener(func, NotificationKind.EDIT, channel_ids).
@@ -218,35 +227,20 @@ class BaseYouTubeNotifier(ABC):
 
         return self.add_listener(func, NotificationKind.EDIT, channel_ids)
 
-    def _mark_as_seen(self, video_id: str) -> Self:
+    def _get_kind(self, video: Video) -> NotificationKind:
         """
-        Mark a video as seen to prevent duplicate notifications.
+        Get the kind of notification based on the video.
 
-        :param video_id: The video ID to mark as seen.
-        :return: The YouTubeNotifier instance to allow for method chaining.
-        """
-
-        if len(self._seen_video_ids) > self._config.cache_size:
-            self._seen_video_ids.popitem(last=False)
-
-        self._seen_video_ids[video_id] = None
-
-        return self
-
-    def _get_kind(self, notification: Notification) -> NotificationKind:
-        """
-        Get the kind of notification based on the video ID.
-
-        :param notification: The notification to get the kind for.
+        :param video: The video to get the kind of notification for.
         :return: The kind of notification.
         """
 
-        if notification.video.timestamp.updated == notification.video.timestamp.published:
+        if video.timestamp.updated == video.timestamp.published:
             return NotificationKind.UPLOAD
 
-        return NotificationKind.EDIT if notification.video.id in self._seen_video_ids else NotificationKind.UPLOAD
+        return NotificationKind.EDIT if video.id in self._video_history.has(video) else NotificationKind.UPLOAD
 
-    def _get_listeners(self, kind: NotificationKind, channel_id: str | None) -> list[PushNotificationListener]:
+    def _get_listeners(self, kind: NotificationKind, channel_id: str | None) -> list[NotificationListener]:
         """
         Get the listeners for the given kind and channel ID.
 
@@ -414,25 +408,22 @@ class BaseYouTubeNotifier(ABC):
 
             self.__logger.info("Successfully %sd channel: %s", mode, channel_id)
 
-    async def _stop(self, *, server_mode: Literal["run", "serve"]) -> None:
+    async def _stop(self) -> None:
         """
         Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
-
-        :param server_mode: The mode the server was running in.
         """
 
         if not self.is_ready:
             return
 
-        await self._clean_up(running_server=self._server, server_mode=server_mode)
+        await self._clean_up(running_server=self._server)
         self._server = None
 
-    async def _clean_up(self, *, running_server: Server | None, server_mode: Literal["run", "serve"]) -> None:
+    async def _clean_up(self, *, running_server: Server | None) -> None:
         """
         Clean up the notifier.
         
         :param running_server: The running server instance, or None if the server is not running.
-        :param server_mode: The mode the server is or was running in.
         """
 
         self.__logger.debug("Cleaning up the notifier")
@@ -449,7 +440,7 @@ class BaseYouTubeNotifier(ABC):
             self.__logger.debug("Temporarily running the server to unsubscribe the YouTube channels")
             # Run the server again to unsubscribe
             running_server = Server(self._get_server_config())
-            if server_mode == "run":
+            if self._get_server_mode() == ServerMode.RUN:
                 Thread(target=running_server.run).start()
             else:
                 _ = asyncio.create_task(running_server.serve())
@@ -530,17 +521,16 @@ class BaseYouTubeNotifier(ABC):
                     channel=channel
                 )
 
-                notification = Notification(channel, video)
-                kind = self._get_kind(notification)
+                kind = self._get_kind(video)
                 listeners = (self._get_listeners(kind, None) +
                              self._get_listeners(kind, channel.id) +
                              self._get_listeners(NotificationKind.ANY, None) +
                              self._get_listeners(NotificationKind.ANY, channel.id))
 
                 for func in listeners:
-                    await func(notification)
+                    await func(video)
 
-                self._mark_as_seen(video.id)
+                await self._video_history.add(video)
         except (TypeError, KeyError, ValueError):
             self.__logger.exception("Failed to parse request body: %s", body)
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)

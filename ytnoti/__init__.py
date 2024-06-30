@@ -11,10 +11,11 @@ from typing import Self, Iterable, Any, Coroutine
 from fastapi import FastAPI
 
 from ytnoti.base import BaseYouTubeNotifier
-from ytnoti.enums import NotificationKind
+from ytnoti.enums import NotificationKind, ServerMode
 from ytnoti.models import YouTubeNotifierConfig
-from ytnoti.models.notification import Notification, Channel, Thumbnail, Video, Stats, Timestamp
-from ytnoti.types import PushNotificationListener, ReadyListener, T
+from ytnoti.models.history import VideoHistory
+from ytnoti.models.video import Channel, Thumbnail, Video, Stats, Timestamp
+from ytnoti.types import NotificationListener, T
 
 
 class YouTubeNotifier(BaseYouTubeNotifier):
@@ -26,7 +27,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
                  *,
                  callback_url: str = None,
                  password: str = None,
-                 cache_size: int = 5000) -> None:
+                 video_history: VideoHistory = None) -> None:
         """
         Create a new YouTubeNotifier instance.
 
@@ -34,11 +35,20 @@ class YouTubeNotifier(BaseYouTubeNotifier):
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
                          be generated.
-        :param cache_size: The number of video IDs to keep in the cache to prevent duplicate notifications.
+        :param video_history: The video history to use to prevent duplicate notifications.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
-        super().__init__(self._logger, callback_url=callback_url, password=password, cache_size=cache_size)
+        super().__init__(
+            self._logger,
+            callback_url=callback_url,
+            password=password,
+            video_history=video_history
+        )
+
+    @staticmethod
+    def _get_server_mode() -> ServerMode:
+        return ServerMode.RUN
 
     def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
         """
@@ -77,7 +87,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         except KeyboardInterrupt:
             # KeyboardInterrupt occurs if run() is running in main thread.
             # In this case, the server automatically stops, so we indicate here that the server is gone
-            self._run_coroutine(super()._clean_up(running_server=None, server_mode="run"))
+            self._run_coroutine(super()._clean_up(running_server=None))
         else:
             self.stop()
 
@@ -90,7 +100,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         if self._server is None:
             return
 
-        self._run_coroutine(super()._stop(server_mode="run"))
+        self._run_coroutine(super()._stop())
 
     @staticmethod
     def _run_coroutine(coro: Coroutine[Any, Any, T]) -> T:
@@ -118,7 +128,7 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
                  *,
                  callback_url: str = None,
                  password: str = None,
-                 cache_size: int = 5000) -> None:
+                 video_history: VideoHistory = None) -> None:
         """
         Create a new AsyncYouTubeNotifier instance.
 
@@ -126,11 +136,20 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
                          be generated.
-        :param cache_size: The number of video IDs to keep in the cache to prevent duplicate notifications.
+        :param video_history: The video history to use to prevent duplicate notifications.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
-        super().__init__(self._logger, callback_url=callback_url, password=password, cache_size=cache_size)
+        super().__init__(
+            self._logger,
+            callback_url=callback_url,
+            password=password,
+            video_history=video_history
+        )
+
+    @staticmethod
+    def _get_server_mode() -> ServerMode:
+        return ServerMode.SERVE
 
     async def subscribe(self, channel_ids: str | Iterable[str]) -> None:
         """
@@ -170,7 +189,7 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         old_signal_handler = signal.getsignal(signal.SIGINT)
 
         async def signal_handler():
-            await self._clean_up(running_server=None, server_mode="serve")
+            await self._clean_up(running_server=None)
 
             signal.signal(signal.SIGINT, old_signal_handler)
             signal.raise_signal(signal.SIGINT)
@@ -187,4 +206,4 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         Request to gracefully stop the notifier. If the notifier is not running, this method will do nothing.
         """
 
-        await super()._stop(server_mode="serve")
+        await super()._stop()

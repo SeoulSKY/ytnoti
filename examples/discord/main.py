@@ -8,7 +8,7 @@ import discord
 from discord import TextChannel
 
 from ytnoti import AsyncYouTubeNotifier
-from ytnoti.models.notification import Notification
+from ytnoti.models.video import Video
 
 
 class MyClient(discord.Client):
@@ -30,14 +30,14 @@ class MyClient(discord.Client):
         self._listeners: dict[str, list[TextChannel]] = {}
 
         @self._notifier.upload()
-        async def listener(notification: Notification) -> None:
+        async def listener(video: Video) -> None:
             """
             Listener called when a video is uploaded
             """
 
-            channels = self._listeners[notification.channel.id]
+            channels = self._listeners[video.channel.id]
             for channel in channels:
-                await channel.send(f"{notification.channel.name} uploaded a [new video]({notification.video.url})")
+                await channel.send(f"{video.channel.name} uploaded a [new video]({video.url})")
 
     async def on_ready(self) -> None:
         """

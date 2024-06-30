@@ -18,3 +18,15 @@ class NotificationKind(Enum):
 
     ANY = 2
     """Any notification"""
+
+
+class ServerMode(Enum):
+    """
+    Enum for the server mode
+    """
+
+    RUN = "run"
+    """Create an event loop and run the server"""
+
+    SERVE = "serve"
+    """Serve the server in the existing event loop"""

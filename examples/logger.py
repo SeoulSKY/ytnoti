@@ -5,7 +5,7 @@ Example of a simple YouTube Notifier with logging module
 
 import logging
 
-from ytnoti import YouTubeNotifier, Notification
+from ytnoti import YouTubeNotifier, Video
 
 
 def main():
@@ -17,12 +17,12 @@ def main():
     notifier = YouTubeNotifier()
 
     @notifier.upload()
-    async def listener(notification: Notification):
+    async def listener(video: Video):
         """
         Listener called when a video is uploaded or edited for any channel
         """
 
-        logger.info("New video from %s: %s", notification.channel.name, notification.video.title)
+        logger.info("New video from %s: %s", video.channel.name, video.title)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 

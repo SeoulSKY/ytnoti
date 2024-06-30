@@ -5,3 +5,4 @@ pylint~=3.2.3
 pyngrok~=7.1.6
 httpx~=0.27.0
 setuptools~=70.1.1
+aiofiles~=24.1.0

@@ -34,6 +34,3 @@ class YouTubeNotifierConfig:
 
     password: str
     """The password to authenticate the YouTubeNotifier"""
-
-    cache_size: int
-    """The size of the cache for the YouTubeNotifier"""
