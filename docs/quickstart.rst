@@ -11,7 +11,7 @@ To get started, you need to install this package
     Next step only applies to those who want to run the program in the local environment, not cloud environment with dedicated IP address.
     If you are going to pass ``callback_url`` to the ``(Async)YouTubeNotifier``, you can skip this step.
 
-You need to signup for a free account at https://dashboard.ngrok.com/get-started/setup, and get your auth token
+You need to signup for a free account at `here <https://dashboard.ngrok.com/get-started/setup>`_, and get your auth token
 
 Then, before running your ``(Async)YouTubeNotifier``, add the following line:
 
