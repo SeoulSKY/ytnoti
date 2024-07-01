@@ -17,9 +17,6 @@ class YouTubeNotifierConfig:
     callback_url: str | None
     """The URL to receive notifications from YouTube"""
 
-    endpoint: str
-    """The endpoint to receive notifications from YouTube"""
-
     port: int
     """The port to receive notifications from YouTube"""
 

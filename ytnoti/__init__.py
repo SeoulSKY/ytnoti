@@ -66,7 +66,6 @@ class YouTubeNotifier(BaseYouTubeNotifier):
 
     def run(self,
             *,
-            endpoint: str = "/",
             port: int = 8000,
             app: FastAPI = None,
             log_level: int = logging.WARNING,
@@ -74,14 +73,13 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         """
         Run the notifier to receive push notifications. This method will block until the notifier is stopped.
 
-        :param endpoint: The endpoint to receive push notifications.
         :param port: The port to run the server on.
         :param app: The FastAPI app to use. If not provided, a new app will be created.
         :param log_level: The log level to use for the uvicorn server.
         :param kwargs: Additional arguments to pass to the server configuration.
         """
 
-        server = super()._setup(endpoint=endpoint, port=port, app=app, log_level=log_level, **kwargs)
+        server = super()._setup(port=port, app=app, log_level=log_level, **kwargs)
 
         try:
             server.run()
@@ -164,7 +162,6 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
 
     async def serve(self,
                     *,
-                    endpoint: str = "/",
                     port: int = 8000,
                     app: FastAPI = None,
                     log_level: int = logging.WARNING,
@@ -172,7 +169,6 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         """
         Start the FastAPI server to receive push notifications in an existing event loop.
 
-        :param endpoint: The endpoint to receive push notifications.
         :param port: The port to run the FastAPI server on.
         :param app: The FastAPI app instance to use. If not provided, a new instance will be created.
         :param log_level: The log level to use for the logger.
@@ -186,7 +182,7 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         except RuntimeError as ex:
             raise RuntimeError("serve() must be called from a running event loop") from ex
 
-        server = super()._setup(endpoint=endpoint, port=port, app=app, log_level=log_level, **kwargs)
+        server = super()._setup(port=port, app=app, log_level=log_level, **kwargs)
 
         old_signal_handler = signal.getsignal(signal.SIGINT)
 

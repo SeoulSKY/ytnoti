@@ -12,7 +12,7 @@ from http import HTTPStatus
 from threading import Thread
 from typing import Self, Literal, Iterable, Any, Callable
 import hmac
-from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 from httpx import AsyncClient, HTTPError
 import xmltodict
@@ -56,7 +56,6 @@ class BaseYouTubeNotifier(ABC):
         self.__logger = logger
         self._config = YouTubeNotifierConfig(
             callback_url,
-            "/",
             8000,
             FastAPI(),
             callback_url is None,
@@ -265,8 +264,9 @@ class BaseYouTubeNotifier(ABC):
         """
 
         router = APIRouter()
-        router.add_api_route(self._config.endpoint, self._get, methods=["HEAD", "GET"])
-        router.add_api_route(self._config.endpoint, self._post, methods=["POST"])
+        endpoint = urlparse(self._config.callback_url).path or "/"
+        router.add_api_route(endpoint, self._get, methods=["HEAD", "GET"])
+        router.add_api_route(endpoint, self._post, methods=["POST"])
 
         return router
 
@@ -282,7 +282,6 @@ class BaseYouTubeNotifier(ABC):
 
     def _setup(self,
                *,
-               endpoint: str,
                port: int,
                app: FastAPI = None,
                log_level: int = logging.WARNING,
@@ -290,7 +289,6 @@ class BaseYouTubeNotifier(ABC):
         """
         Create a server instance to receive push notifications.
 
-        :param endpoint: The endpoint to receive push notifications.
         :param port: The port to run the server on.
         :param app: The FastAPI app to use. If not provided, a new app will be created.
         :param log_level: The log level to use for the uvicorn server.
@@ -298,14 +296,12 @@ class BaseYouTubeNotifier(ABC):
         :return: The server instance.
         """
 
-        self._config.endpoint = endpoint
         self._config.port = port
         self._config.app = app or self._config.app
 
         if self._config.using_ngrok:
             self._config.callback_url = ngrok.connect(str(port)).public_url
 
-        self._config.callback_url = urljoin(self._config.callback_url, self._config.endpoint)
         self.__logger.info("Callback URL: %s", self._config.callback_url)
 
         self._config.app.include_router(self._get_router())
