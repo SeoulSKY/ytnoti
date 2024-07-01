@@ -14,7 +14,7 @@ from typing import Self, Literal, Iterable, Any, Callable
 import hmac
 from urllib.parse import urlparse
 
-from httpx import AsyncClient, HTTPError
+from httpx import AsyncClient
 import xmltodict
 from fastapi import FastAPI, Request, Response, APIRouter
 from uvicorn import Config, Server
@@ -22,6 +22,7 @@ from pyngrok import ngrok
 from pyexpat import ExpatError
 
 from ytnoti.enums import NotificationKind, ServerMode
+from ytnoti.errors import HTTPError
 from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
 from ytnoti.models.video import Channel, Thumbnail, Video, Stats, Timestamp
@@ -400,7 +401,7 @@ class BaseYouTubeNotifier(ABC):
                 raise ConnectionError(f"Cannot {mode} while the server is not listening")
 
             if response.status_code != HTTPStatus.NO_CONTENT.value:
-                raise HTTPError(f"Failed to {mode} channel ({channel_id}) with status code {response.status_code}")
+                raise HTTPError(f"Failed to {mode} channel: {channel_id}", response.status_code)
 
             self.__logger.info("Successfully %sd channel: %s", mode, channel_id)
 
