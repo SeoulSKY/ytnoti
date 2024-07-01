@@ -39,6 +39,10 @@ For more examples, please visit the [examples](https://github.com/SeoulSKY/ytnot
 
 ```python
 from ytnoti import YouTubeNotifier, Video
+from pyngrok import ngrok
+
+# Create your ngrok token free from https://dashboard.ngrok.com/get-started/setup
+ngrok.set_auth_token("Your ngrok token here")
 
 notifier = YouTubeNotifier()
 

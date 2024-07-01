@@ -6,6 +6,7 @@ import logging
 
 import discord
 from discord import TextChannel
+from pyngrok import ngrok
 
 from ytnoti import AsyncYouTubeNotifier
 from ytnoti.models.video import Video
@@ -80,6 +81,8 @@ class MyClient(discord.Client):
 
 
 if __name__ == "__main__":
+    ngrok.set_auth_token("Your ngrok token here")
+
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     LOG_LEVEL = logging.INFO
     logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)

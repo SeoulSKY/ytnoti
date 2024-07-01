@@ -5,6 +5,8 @@ Example of a simple YouTube Notifier with logging module
 
 import logging
 
+from pyngrok import ngrok
+
 from ytnoti import YouTubeNotifier, Video
 
 
@@ -12,6 +14,8 @@ def main():
     """
     Main function
     """
+
+    ngrok.set_auth_token("Your ngrok token here")
 
     logger = logging.getLogger(__name__)
     notifier = YouTubeNotifier()

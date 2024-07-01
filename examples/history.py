@@ -8,6 +8,8 @@ You can also extend the abstract class VideoHistory to create your own custom vi
 
 from pathlib import Path
 
+from pyngrok import ngrok
+
 from ytnoti import YouTubeNotifier, Video
 from ytnoti.models.history import FileVideoHistory
 
@@ -16,6 +18,8 @@ def main():
     """
     Main function
     """
+
+    ngrok.set_auth_token("Your ngrok token here")
 
     # This will create a new folder called "videoHistory" in the current directory
     video_history = FileVideoHistory(dir_path=Path("./videoHistory"))

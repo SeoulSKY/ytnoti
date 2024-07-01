@@ -2,6 +2,7 @@
 This is an example of how to use decorators to listen to notifications.
 """
 
+from pyngrok import ngrok
 
 from ytnoti import YouTubeNotifier, Video
 
@@ -10,6 +11,8 @@ def main():
     """
     Main function
     """
+
+    ngrok.set_auth_token("Your ngrok token here")
 
     notifier = YouTubeNotifier()
 

@@ -4,6 +4,8 @@ This example demonstrates how to use the AsyncYouTubeNotifier to listen for new 
 
 import asyncio
 
+from pyngrok import ngrok
+
 from ytnoti import AsyncYouTubeNotifier, Video
 
 
@@ -11,6 +13,8 @@ async def main():
     """
     Main function
     """
+
+    ngrok.set_auth_token("Your ngrok token here")
 
     notifier = AsyncYouTubeNotifier()
 
