@@ -96,10 +96,24 @@ This project is licensed under the MIT License - see the `LICENSE.md <https://gi
 
 .. toctree::
     :hidden:
+    :caption: Data
+    :glob:
+
+    data/*
+
+.. toctree::
+    :hidden:
     :caption: Enums
     :glob:
 
     enums/*
+
+.. toctree::
+    :hidden:
+    :caption: Errors
+    :glob:
+
+    errors/*
 
 .. toctree::
     :hidden:
