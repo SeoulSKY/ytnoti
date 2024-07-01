@@ -1,8 +1,5 @@
 """
 This module contains the dataclasses used in the YouTubeNotifier
-
-Classes:
-    YouTubeNotifierConfig
 """
 
 

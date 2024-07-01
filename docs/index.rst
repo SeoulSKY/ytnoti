@@ -6,7 +6,7 @@
 ytnoti
 -------
 
-.. image:: https://img.shields.io/badge/Python-v3.11-blue?logo=python
+.. image:: https://img.shields.io/badge/Python-v3.11%20%7C%20v3.12-blue?logo=python
    :target: https://www.python.org/downloads/release/python-3110/
    :alt: Python version
 
@@ -17,6 +17,10 @@ ytnoti
 .. image:: https://img.shields.io/pypi/dm/ytnoti
     :target: https://pypi.org/project/ytnoti/
     :alt: PyPI downloads
+
+.. image:: https://img.shields.io/github/license/SeoulSKY/ytnoti
+    :target: https://github.com/SeoulSKY/ytnoti/blob/main/LICENSE.md
+    :alt: License
 
 ytnoti is designed to help you receive YouTube push notifications for video
 upload and edit in an easy and efficient way.
@@ -47,13 +51,13 @@ For more examples, please visit the `examples <https://github.com/SeoulSKY/ytnot
 
 .. code:: python
 
-   from ytnoti import YouTubeNotifier, Notification
+   from ytnoti import YouTubeNotifier, Video
 
    notifier = YouTubeNotifier()
 
    @notifier.upload()
-   async def listener(notification: Notification):
-       print(f"New video from {notification.channel.name}: {notification.video.title}")
+   async def listener(video: Video):
+       print(f"New video from {video.channel.name}: {video.title}")
 
    notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
    notifier.run()
@@ -73,12 +77,29 @@ If you have any questions about this library please visit my Discord server.
 
 This project is licensed under the MIT License - see the `LICENSE.md <https://github.com/SeoulSKY/ytnoti/blob/main/LICENSE.md>`_ file for details.
 
+.. toctree::
+    :hidden:
+    :caption: Getting Started
+
+    quickstart
 
 .. toctree::
-   :hidden:
-   :maxdepth: 3
-   :caption: Contents:
+    :hidden:
+    :caption: Classes
+    :glob:
 
-   modules
-   ytnoti
-   ytnoti.models
+    classes/*
+
+.. toctree::
+    :hidden:
+    :caption: Enums
+    :glob:
+
+    enums/*
+
+.. toctree::
+    :hidden:
+    :caption: More Information
+
+    faq
+    changelog

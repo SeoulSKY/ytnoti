@@ -42,15 +42,15 @@ class BaseYouTubeNotifier(ABC):
                  password: str = None,
                  video_history: VideoHistory = None) -> None:
         """
-        Create a new YouTubeNotifier instance.
+        Set up the YouTubeNotifier instance.
 
         :param logger: The logger to use for logging.
         :param callback_url: The URL to receive push notifications. If not provided, ngrok will be used to create a
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
                          be generated.
-        :param video_history: The video history to use. If not provided, an in-memory history will be used. The history
-                              is used to prevent duplicate notifications.
+        :param video_history: The video history to use to prevent duplicate notifications. If not provided, a new
+                              instance of InMemoryVideoHistory will be created and used.
         """
 
         self.__logger = logger
@@ -227,7 +227,7 @@ class BaseYouTubeNotifier(ABC):
 
         return self.add_listener(func, NotificationKind.EDIT, channel_ids)
 
-    def _get_kind(self, video: Video) -> NotificationKind:
+    async def _get_kind(self, video: Video) -> NotificationKind:
         """
         Get the kind of notification based on the video.
 
@@ -238,7 +238,7 @@ class BaseYouTubeNotifier(ABC):
         if video.timestamp.updated == video.timestamp.published:
             return NotificationKind.UPLOAD
 
-        return NotificationKind.EDIT if video.id in self._video_history.has(video) else NotificationKind.UPLOAD
+        return NotificationKind.EDIT if await self._video_history.has(video) else NotificationKind.UPLOAD
 
     def _get_listeners(self, kind: NotificationKind, channel_id: str | None) -> list[NotificationListener]:
         """
@@ -521,7 +521,7 @@ class BaseYouTubeNotifier(ABC):
                     channel=channel
                 )
 
-                kind = self._get_kind(video)
+                kind = await self._get_kind(video)
                 listeners = (self._get_listeners(kind, None) +
                              self._get_listeners(kind, channel.id) +
                              self._get_listeners(NotificationKind.ANY, None) +
@@ -530,7 +530,8 @@ class BaseYouTubeNotifier(ABC):
                 for func in listeners:
                     await func(video)
 
-                await self._video_history.add(video)
+                if kind == NotificationKind.UPLOAD:
+                    await self._video_history.add(video)
         except (TypeError, KeyError, ValueError):
             self.__logger.exception("Failed to parse request body: %s", body)
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)

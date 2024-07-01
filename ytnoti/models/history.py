@@ -154,7 +154,7 @@ class FileVideoHistory(VideoHistory):
 
             async with aiofiles.open(path, "r", encoding="utf-8") as file:
                 async for line in file:
-                    if (await line).strip() == video.id:
+                    if line.strip() == video.id:
                         return True
 
             return False

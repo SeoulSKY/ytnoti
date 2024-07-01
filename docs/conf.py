@@ -18,13 +18,14 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "ytnoti"
 copyright = "2024 - Present, SeoulSKY"
 author = "SeoulSKY"
-release = "0.1.1"
+release = "0.1.2"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
 ]
 
 templates_path = ["_templates"]
@@ -69,3 +70,5 @@ autodoc_default_options = {
     "undoc-members": True,
     "exclude-members": "__weakref__"
 }
+
+autosummary_generate = True

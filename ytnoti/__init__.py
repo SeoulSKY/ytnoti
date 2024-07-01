@@ -35,7 +35,8 @@ class YouTubeNotifier(BaseYouTubeNotifier):
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
                          be generated.
-        :param video_history: The video history to use to prevent duplicate notifications.
+        :param video_history: The video history to use to prevent duplicate notifications. If not provided, a new
+                              instance of InMemoryVideoHistory will be created and used.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -136,7 +137,8 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
                              temporary URL.
         :param password: The password to use for verifying push notifications. If not provided, a random password will
                          be generated.
-        :param video_history: The video history to use to prevent duplicate notifications.
+        :param video_history: The video history to use to prevent duplicate notifications. If not provided, a new
+                              instance of InMemoryVideoHistory will be created and used.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)

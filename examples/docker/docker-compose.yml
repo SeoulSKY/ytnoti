@@ -1,0 +1,4 @@
+services:
+  ytnoti:
+    build: .
+    container_name: ytnoti
