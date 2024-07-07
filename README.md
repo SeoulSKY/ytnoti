@@ -87,6 +87,18 @@ on my Discord server.
     <img alt="discord invite" src="http://invidget.switchblade.xyz/kQZDJJB">
 </a>
 
+# 💖 Supporters
+
+Thank you to all the people who support this project!
+
+## 🌟 Stargazers
+
+[![Stargazers repo roster for @SeoulSKY/ytnoti](https://reporoster.com/stars/dark/SeoulSKY/ytnoti)](https://github.com/SeoulSKY/ytnoti/stargazers)
+
+## 🍴 Forkers
+
+[![Forkers repo roster for @SeoulSKY/ytnoti](https://reporoster.com/forks/dark/SeoulSKY/ytnoti)](https://github.com/SeoulSKY/ytnoti/network/members)
+
 # 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/SeoulSKY/ytnoti/blob/main/LICENSE.md) file for details.
