@@ -14,7 +14,7 @@ ytnoti
     :target: https://pypi.org/project/ytnoti/
     :alt: PyPI version
 
-.. image:: https://img.shields.io/pypi/dm/ytnoti
+.. image:: https://static.pepy.tech/badge/ytnoti
     :target: https://pypi.org/project/ytnoti/
     :alt: PyPI downloads
 
