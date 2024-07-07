@@ -57,6 +57,7 @@ class BaseYouTubeNotifier(ABC):
         self.__logger = logger
         self._config = YouTubeNotifierConfig(
             callback_url,
+            "0.0.0.0",
             8000,
             FastAPI(),
             callback_url is None,
@@ -271,25 +272,26 @@ class BaseYouTubeNotifier(ABC):
 
         return router
 
-    def _get_server_config(self, log_level: int = logging.WARNING, **kwargs) -> Config:
+    def _get_server_config(self, **kwargs) -> Config:
         """
         Get the server configuration.
 
-        :param log_level: The log level to use for the uvicorn server.
         :param kwargs: Additional arguments to pass to the server configuration.
         :return: The server configuration.
         """
-        return Config(self._config.app, "0.0.0.0", self._config.port, log_level=log_level, **kwargs)
 
-    def _setup(self,
-               *,
-               port: int,
-               app: FastAPI = None,
-               log_level: int = logging.WARNING,
-               **kwargs: Any) -> Server:
+        return Config(self._config.app, self._config.host, self._config.port, **kwargs)
+
+    def _get_server(self,
+                    *,
+                    host: str,
+                    port: int,
+                    app: FastAPI = None,
+                    **kwargs: Any) -> Server:
         """
         Create a server instance to receive push notifications.
 
+        :param host: The host to run the server on.
         :param port: The port to run the server on.
         :param app: The FastAPI app to use. If not provided, a new app will be created.
         :param log_level: The log level to use for the uvicorn server.
@@ -297,6 +299,7 @@ class BaseYouTubeNotifier(ABC):
         :return: The server instance.
         """
 
+        self._config.host = host
         self._config.port = port
         self._config.app = app or self._config.app
 
@@ -324,7 +327,7 @@ class BaseYouTubeNotifier(ABC):
         self._config.app.add_event_handler("startup",
                                            lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24)))
 
-        server = Server(self._get_server_config(log_level, **kwargs))
+        server = Server(Config(self._config.app, self._config.host, self._config.port, **kwargs))
         return server
 
     async def _is_listening(self) -> bool:
@@ -430,13 +433,13 @@ class BaseYouTubeNotifier(ABC):
         if self._config.using_ngrok:
             return
 
-        self._config.app = FastAPI()
-        self._config.app.include_router(self._get_router())
+        app = FastAPI()
+        app.include_router(self._get_router())
 
         if running_server is None:
             self.__logger.debug("Temporarily running the server to unsubscribe the YouTube channels")
             # Run the server again to unsubscribe
-            running_server = Server(self._get_server_config())
+            running_server = Server(Config(app, self._config.host, self._config.port, log_level=logging.WARNING))
             if self._get_server_mode() == ServerMode.RUN:
                 Thread(target=running_server.run).start()
             else:

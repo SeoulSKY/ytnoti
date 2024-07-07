@@ -17,8 +17,11 @@ class YouTubeNotifierConfig:
     callback_url: str | None
     """The URL to receive notifications from YouTube"""
 
+    host: str
+    """The host to run the FastAPI app on"""
+
     port: int
-    """The port to receive notifications from YouTube"""
+    """The port to run the FastAPI app on"""
 
     app: FastAPI
     """The FastAPI app to receive notifications from YouTube"""

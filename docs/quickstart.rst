@@ -7,9 +7,11 @@ To get started, you need to install this package
 
     pip install ytnoti
 
+Using Ngrok
+-----------
+
 .. note::
-    Next step only applies to those who want to run the program in the local environment, not cloud environment with dedicated IP address.
-    If you are going to pass ``callback_url`` to the ``(Async)YouTubeNotifier``, you can skip this step.
+    This step only applies to those who want to run the program without a dedicated IP address or domain. To use your domain, see the :doc:`advanced` section.
 
 You need to signup for a free account at `here <https://dashboard.ngrok.com/get-started/setup>`_, and get your auth token
 
@@ -24,6 +26,9 @@ Then, before running your ``(Async)YouTubeNotifier``, add the following line:
 .. warning::
     Do not share your ngrok token with anyone. It can be used to access your ngrok account and expose your local network.
     Never commit your ngrok token to a public repository.
+
+Example Usage
+-------------
 
 Following is the example code to get you started:
 
@@ -47,12 +52,16 @@ Following is the example code to get you started:
     notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
     notifier.run()
 
-``(Async)YouTubeNotifier`` also provides other decorator for your listener function:
+Using Decorators
+----------------
+
+``(Async)YouTubeNotifier`` also provides following decorators for your listener function:
 
 - ``@notifier.any()``: Triggered when any event occurs
 - ``@notifier.edit()``: Triggered when a video is edited
+- ``@notifier.upload()``: Triggered when a new video is uploaded
 
-``any()``, ``upload()``, and ``edit()`` take an optional parameter ``channel_ids`` to only listen to events from specific channels.
+``any()``, ``edit()`` and ``upload()`` take an optional parameter ``channel_ids`` to only listen to events from specific channels.
 
 .. code:: python
 
@@ -69,28 +78,3 @@ Following example listens to any channel's edit event and SpeedyStyle's upload e
     @notifier.upload(channel_ids="UC9EEyg7QBL-stRX-7hTV3ng")
     async def listener(video: Video):
         print(f"New video from SpeedyStyle: {video.title}")
-
-Using callback_url
-------------------
-
-.. note::
-    Following only applies when you run the program in the cloud environment with a dedicated IP address.
-
-You can pass ``callback_url`` to the ``(Async)YouTubeNotifier`` to not use ngrok.
-If your server IP is ``123.456.789.012`` and port is ``1234``, you can pass the following:
-
-.. code:: python
-
-    notifier = YouTubeNotifier(callback_url="http://123.456.789.012:1234")
-
-Or your domain if you have one:
-
-.. code:: python
-
-    notifier = YouTubeNotifier(callback_url="http://yourdomain.com")
-
-If you include endpoint in the URL, it will be used as the endpoint for the callback.
-
-.. code:: python
-
-    notifier = YouTubeNotifier(callback_url="http://yourdomain.com/endpoint")

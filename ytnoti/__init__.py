@@ -66,6 +66,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
 
     def run(self,
             *,
+            host: str = "0.0.0.0",
             port: int = 8000,
             app: FastAPI = None,
             log_level: int = logging.WARNING,
@@ -73,13 +74,14 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         """
         Run the notifier to receive push notifications. This method will block until the notifier is stopped.
 
+        :param host: The host to run the server on.
         :param port: The port to run the server on.
         :param app: The FastAPI app to use. If not provided, a new app will be created.
         :param log_level: The log level to use for the uvicorn server.
-        :param kwargs: Additional arguments to pass to the server configuration.
+        :param kwargs: Additional arguments to pass to the Config class of uvicorn.
         """
 
-        server = super()._setup(port=port, app=app, log_level=log_level, **kwargs)
+        server = super()._get_server(host=host, port=port, app=app, log_level=log_level, **kwargs)
 
         try:
             server.run()
@@ -162,17 +164,19 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
 
     async def serve(self,
                     *,
+                    host: str = "0.0.0.0",
                     port: int = 8000,
-                    app: FastAPI = None,
                     log_level: int = logging.WARNING,
+                    app: FastAPI = None,
                     **kwargs: Any) -> None:
         """
         Start the FastAPI server to receive push notifications in an existing event loop.
 
+        :param host: The host to run the FastAPI server on.
         :param port: The port to run the FastAPI server on.
+        :param log_level: The log level to use for the uvicorn server.
         :param app: The FastAPI app instance to use. If not provided, a new instance will be created.
-        :param log_level: The log level to use for the logger.
-        :param kwargs: Additional keyword arguments to pass to the FastAPI app.
+        :param kwargs: Additional arguments to pass to the Config class of uvicorn.
 
         :raises RuntimeError: If the method is not called from a running event loop.
         """
@@ -182,7 +186,7 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         except RuntimeError as ex:
             raise RuntimeError("serve() must be called from a running event loop") from ex
 
-        server = super()._setup(port=port, app=app, log_level=log_level, **kwargs)
+        server = super()._get_server(host=host, port=port, app=app, log_level=log_level, **kwargs)
 
         old_signal_handler = signal.getsignal(signal.SIGINT)
 
