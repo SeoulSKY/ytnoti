@@ -1,6 +1,14 @@
 Changelog
 ==========
 
+v1.1.0
+------
+
+* Add an optional parameter ``host`` to ``YouTubeNotifier.run()`` and ``AsyncYouTubeNotifier.serve()`` to
+  specify the host to bind to when running the FastAPI server. Defaults to ``0.0.0.0``
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v1.0.0...v1.1.0
+
 v1.0.0
 ------
 
