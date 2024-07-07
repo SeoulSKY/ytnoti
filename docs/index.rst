@@ -32,7 +32,7 @@ This library uses YouTube Data API v3 via
 `PubSubHubbub <https://developers.google.com/youtube/v3/guides/push_notifications>`_ to receive push
 notifications, so you can receive notifications in real-time without constantly polling the YouTube API.
 
-In addition, this method doesn't require any API key, so you can use this library **without any quota limit**.
+In addition, this method doesn't require any API key for YouTube Data API, so you can use this library **without any quota limit**.
 
 💻 Installation
 ------------------
@@ -44,20 +44,37 @@ This library requires `Python 3.11` or higher.
    pip install ytnoti
 
 
-📝 Simple Example
+📖 Simple Example
 ------------------
 
-For more examples, please visit the `examples <https://github.com/SeoulSKY/ytnoti/tree/main/examples>`_ folder.
+Following is a simple example of how to use `ngrok <https://dashboard.ngrok.com/get-started/setup>`_ to receive push notifications.
+
+.. code:: python
+
+   from pyngrok import ngrok
+   from ytnoti import YouTubeNotifier, Video
+
+   ngrok.set_auth_token("Your ngrok token here")
+
+   notifier = YouTubeNotifier()
+
+
+   @notifier.upload()
+   async def listener(video: Video):
+       print(f"New video from {video.channel.name}: {video.title}")
+
+
+   notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+   notifier.run()
+
+Following is a simple example of how to use your domain to receive push notifications.
 
 .. code:: python
 
    from ytnoti import YouTubeNotifier, Video
-   from pyngrok import ngrok
 
-   # Create your ngrok token free from https://dashboard.ngrok.com/get-started/setup
-   ngrok.set_auth_token("Your ngrok token here")
+   notifier = YouTubeNotifier(callback_url="https://yourdomain.com")
 
-   notifier = YouTubeNotifier()
 
    @notifier.upload()
    async def listener(video: Video):
@@ -65,6 +82,9 @@ For more examples, please visit the `examples <https://github.com/SeoulSKY/ytnot
 
    notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
    notifier.run()
+
+
+For more examples, please visit the `examples <https://github.com/SeoulSKY/ytnoti/tree/main/examples>`_ folder.
 
 👥 Community
 -------------
