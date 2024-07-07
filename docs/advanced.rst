@@ -65,3 +65,35 @@ See their `documentation <https://www.uvicorn.org/#usage>`_ for available option
 .. code:: python
 
     notifier.run(workers=3)
+
+Using Your Own Video History Class
+----------------------------------
+
+Since YouTube Data API doesn't provide information whether the notification is for upload or edit,
+``(Async)YouTubeNotifier`` uses ``InMemoryVideoHistory`` by default to keep track of the video history.
+If the video is not in the history, it will be considered as a new video.
+Otherwise, it will be considered as an edited video.
+
+The library provides ``FileVideoHistory`` class that saves the video history to files. To use it, pass it to the ``video_history`` parameter.
+
+.. code:: python
+
+    from ytnoti import YouTubeNotifier, FileVideoHistory
+
+    notifier = YouTubeNotifier(video_history=FileVideoHistory(dir_path="video_history"))
+
+You can also create your own video history class by inheriting ``VideoHistory`` and implementing
+the abstract methods ``add`` and ``has``.
+
+.. code:: python
+
+    from ytnoti import YouTubeNotifier, Video, VideoHistory
+
+    class MyVideoHistory(VideoHistory):
+        async def add(self, video: Video) -> None:
+            pass
+
+        async def has(self, video: Video) -> bool:
+            return False
+
+    notifier = YouTubeNotifier(video_history=MyVideoHistory())
