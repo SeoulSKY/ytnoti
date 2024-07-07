@@ -1,6 +1,13 @@
 Changelog
 ==========
 
+v1.1.1
+------
+
+* Update the type of `dir_path` of the constructor of ``FileVideoHistory`` from ``Path`` to ``str | PathLike[str]``
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v1.1.0...v1.1.1
+
 v1.1.0
 ------
 
