@@ -6,8 +6,6 @@ keep track of the videos that have been uploaded or edited, even if the program 
 You can also extend the abstract class VideoHistory to create your own custom video history storage.
 """
 
-from pathlib import Path
-
 from pyngrok import ngrok
 
 from ytnoti import YouTubeNotifier, Video
@@ -22,7 +20,7 @@ def main():
     ngrok.set_auth_token("Your ngrok token here")
 
     # This will create a new folder called "videoHistory" in the current directory
-    video_history = FileVideoHistory(dir_path=Path("./videoHistory"))
+    video_history = FileVideoHistory(dir_path="./videoHistory")
 
     notifier = YouTubeNotifier(video_history=video_history)
 

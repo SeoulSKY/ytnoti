@@ -5,6 +5,7 @@ This module contains the video history model.
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from os import PathLike
 from pathlib import Path
 from threading import Lock
 
@@ -92,7 +93,7 @@ class FileVideoHistory(VideoHistory):
     Represents a file-based history of videos.
     """
 
-    def __init__(self, *, dir_path: Path, num_videos: int = 100) -> None:
+    def __init__(self, *, dir_path: str | PathLike[str], num_videos: int = 100) -> None:
         """
         Create a new FileVideoHistory instance.
 
@@ -102,7 +103,7 @@ class FileVideoHistory(VideoHistory):
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._dir_path = dir_path
+        self._dir_path = Path(dir_path)
         self._num_videos = num_videos
         self._lock = Lock()
 
