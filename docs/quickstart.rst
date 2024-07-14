@@ -19,7 +19,7 @@ Then, before running your ``(Async)YouTubeNotifier``, add the following line:
 
 .. code:: python
 
-    from ytnoti import ngrok
+    from pyngrok import ngrok
 
     ngrok.set_auth_token("Your ngrok token here")
 
@@ -37,8 +37,6 @@ Following is the example code to get you started:
     from pyngrok import ngrok
     from ytnoti import YouTubeNotifier, Video
 
-    from ytnoti import ngrok
-
     ngrok.set_auth_token("Your ngrok token here")
 
     notifier = YouTubeNotifier()
@@ -55,13 +53,13 @@ Following is the example code to get you started:
 Using Decorators
 ----------------
 
-``(Async)YouTubeNotifier`` also provides following decorators for your listener function:
+``(Async)YouTubeNotifier`` provides following decorators for your listener function:
 
 - ``@notifier.any()``: Triggered when any event occurs
 - ``@notifier.edit()``: Triggered when a video is edited
 - ``@notifier.upload()``: Triggered when a new video is uploaded
 
-``any()``, ``edit()`` and ``upload()`` take an optional parameter ``channel_ids`` to only listen to events from specific channels.
+They take an optional parameter ``channel_ids`` to only listen to events from specific channels.
 
 .. code:: python
 
