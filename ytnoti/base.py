@@ -57,15 +57,14 @@ class BaseYouTubeNotifier(ABC):
         self.__logger = logger
         self._config = YouTubeNotifierConfig(
             callback_url,
-            "0.0.0.0",
-            8000,
+            "",
+            -1,
             FastAPI(),
             callback_url is None,
             password or str("".join(random.choice(string.ascii_letters) for _ in range(20))),
         )
         self._listeners: dict[NotificationKind, dict[str, list[NotificationListener]]] = \
             {kind: {} for kind in NotificationKind}
-        self._server = None
         self._subscribed_ids: set[str] = set()
         self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
@@ -272,22 +271,22 @@ class BaseYouTubeNotifier(ABC):
 
         return router
 
-    def _get_server_config(self, **kwargs) -> Config:
+    def _get_server_config(self, **configs) -> Config:
         """
         Get the server configuration.
 
-        :param kwargs: Additional arguments to pass to the server configuration.
+        :param configs: Additional arguments to pass to the server configuration.
         :return: The server configuration.
         """
 
-        return Config(self._config.app, self._config.host, self._config.port, **kwargs)
+        return Config(self._config.app, self._config.host, self._config.port, **configs)
 
     def _get_server(self,
                     *,
                     host: str,
                     port: int,
                     app: FastAPI = None,
-                    **kwargs: Any) -> Server:
+                    **configs: Any) -> Server:
         """
         Create a server instance to receive push notifications.
 
@@ -295,7 +294,7 @@ class BaseYouTubeNotifier(ABC):
         :param port: The port to run the server on.
         :param app: The FastAPI app to use. If not provided, a new app will be created.
         :param log_level: The log level to use for the uvicorn server.
-        :param kwargs: Additional arguments to pass to the server configuration.
+        :param configs: Additional arguments to pass to the server configuration.
         :return: The server instance.
         """
 
@@ -327,7 +326,7 @@ class BaseYouTubeNotifier(ABC):
         self._config.app.add_event_handler("startup",
                                            lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24)))
 
-        server = Server(Config(self._config.app, self._config.host, self._config.port, **kwargs))
+        server = Server(Config(self._config.app, self._config.host, self._config.port, **configs))
         return server
 
     async def _is_listening(self) -> bool:
@@ -373,6 +372,12 @@ class BaseYouTubeNotifier(ABC):
                         mode: Literal["subscribe", "unsubscribe"] = "subscribe") -> None:
         """
         Subscribe or unsubscribe to YouTube channels to receive push notifications.
+
+        :param channel_ids: The channel ID(s) to subscribe or unsubscribe to.
+        :param mode: The mode to use. Either 'subscribe' or 'unsubscribe'.
+        :raises ValueError: If an invalid channel ID is provided.
+        :raises ConnectionError: If this method is called while the server is not listening.
+        :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
         """
 
         async with AsyncClient() as client:
@@ -400,8 +405,13 @@ class BaseYouTubeNotifier(ABC):
                     headers={"Content-type": "application/x-www-form-urlencoded"}
                 )
 
-            if response.status_code == HTTPStatus.CONFLICT.value and not await self._is_listening():
-                raise ConnectionError(f"Cannot {mode} while the server is not listening")
+            if response.status_code == HTTPStatus.CONFLICT.value:
+                if not await self._is_listening():
+                    raise ConnectionError(f"Cannot {mode} while the server is not listening")
+
+                raise HTTPError(f"Failed to {mode} channel: {channel_id}. "
+                                f"The reason might be because {self._config.callback_url} is inaccessible from the "
+                                f"public internet", response.status_code)
 
             if response.status_code != HTTPStatus.NO_CONTENT.value:
                 raise HTTPError(f"Failed to {mode} channel: {channel_id}", response.status_code)
