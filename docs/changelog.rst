@@ -1,6 +1,14 @@
 Changelog
 ==========
 
+v1.1.2
+------
+
+* Improved error messages, suggesting possible reasons why they occurred
+* ``YouTubeNotifier.run()`` and ``AsyncYouTubeNotifier.serve()`` now raises ``ValueError`` if the registered routes in the given ``FastAPI`` instance conflict with the reserved routes for the notifier.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v1.1.1...v1.1.2
+
 v1.1.1
 ------
 
