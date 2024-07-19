@@ -81,6 +81,7 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         :param app: The FastAPI app to use. If not provided, a new app will be created.
         :param log_level: The log level to use for the uvicorn server.
         :param configs: Additional arguments to pass to the Config class of uvicorn.
+        :raises ValueError: If the given app instance has a route that conflicts with the notifier's routes.
         """
 
         server = super()._get_server(host=host, port=port, app=app, log_level=log_level, **configs)
@@ -182,6 +183,7 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         :param app: The FastAPI app instance to use. If not provided, a new instance will be created.
         :param configs: Additional arguments to pass to the Config class of uvicorn.
 
+        :raises ValueError: If the given app instance has a route that conflicts with the notifier's routes.
         :raises RuntimeError: If the method is not called from a running event loop.
         """
 

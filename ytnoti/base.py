@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 from httpx import AsyncClient
 import xmltodict
 from fastapi import FastAPI, Request, Response, APIRouter
+from fastapi.routing import APIRoute
+from starlette.routing import Route
 from uvicorn import Config, Server
 from pyngrok import ngrok
 from pyexpat import ExpatError
@@ -296,6 +298,7 @@ class BaseYouTubeNotifier(ABC):
         :param log_level: The log level to use for the uvicorn server.
         :param configs: Additional arguments to pass to the server configuration.
         :return: The server instance.
+        :raises ValueError: If the given app instance has a route that conflicts with the notifier's routes.
         """
 
         self._config.host = host
@@ -306,6 +309,11 @@ class BaseYouTubeNotifier(ABC):
             self._config.callback_url = ngrok.connect(str(port)).public_url
 
         self.__logger.info("Callback URL: %s", self._config.callback_url)
+
+        endpoint = urlparse(self._config.callback_url).path or "/"
+
+        if any(isinstance(route, (APIRoute, Route)) and route.path == endpoint for route in app.routes):
+            raise ValueError(f"Endpoint {endpoint} is reserved for {__package__} so it cannot be used by the app")
 
         self._config.app.include_router(self._get_router())
 
