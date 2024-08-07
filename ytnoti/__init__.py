@@ -14,7 +14,7 @@ from ytnoti.base import BaseYouTubeNotifier
 from ytnoti.enums import NotificationKind, ServerMode
 from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.history import VideoHistory
-from ytnoti.models.video import Channel, Thumbnail, Video, Stats, Timestamp
+from ytnoti.models.video import Channel, Video, Timestamp
 from ytnoti.types import NotificationListener, T
 
 

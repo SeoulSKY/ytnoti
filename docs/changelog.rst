@@ -1,6 +1,24 @@
 Changelog
 ==========
 
+v2.0.0
+------
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+* Following fields in ``Video`` are removed as these are not sent by YouTube in the push notifications:
+
+  * description
+  * thumbnail
+  * stats
+
+Bug Fixes
+~~~~~~~~~
+
+* Fixed YouTubeNotifier.run() and AsyncYouTubeNotifier.serve() raising TypeError when the optional parameter ``app`` wasn't given.
+* Fixed (Async)YouTubeNotifier not invoking the event listeners for some YouTube channels.
+
 v1.1.2
 ------
 

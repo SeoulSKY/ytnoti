@@ -27,7 +27,7 @@ from ytnoti.enums import NotificationKind, ServerMode
 from ytnoti.errors import HTTPError
 from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
-from ytnoti.models.video import Channel, Thumbnail, Video, Stats, Timestamp
+from ytnoti.models.video import Channel, Video, Timestamp
 from ytnoti.types import NotificationListener
 
 
@@ -312,7 +312,7 @@ class BaseYouTubeNotifier(ABC):
 
         endpoint = urlparse(self._config.callback_url).path or "/"
 
-        if any(isinstance(route, (APIRoute, Route)) and route.path == endpoint for route in app.routes):
+        if any(isinstance(route, (APIRoute, Route)) and route.path == endpoint for route in self._config.app.routes):
             raise ValueError(f"Endpoint {endpoint} is reserved for {__package__} so it cannot be used by the app")
 
         self._config.app.include_router(self._get_router())
@@ -403,7 +403,7 @@ class BaseYouTubeNotifier(ABC):
                     "https://pubsubhubbub.appspot.com",
                     data={
                         "hub.mode": mode,
-                        "hub.topic": f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}",
+                        "hub.topic": f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}",
                         "hub.callback": self._config.callback_url,
                         "hub.verify": "sync",
                         "hub.secret": self._config.password,
@@ -473,7 +473,7 @@ class BaseYouTubeNotifier(ABC):
     @staticmethod
     async def _get(request: Request):
         """
-        Handle challenge from the Google pubsubhubbub server.
+        Handle a challenge from the Google pubsubhubbub server.
         """
 
         challenge = request.query_params.get("hub.challenge")
@@ -506,35 +506,17 @@ class BaseYouTubeNotifier(ABC):
                     id=entry["yt:channelId"],
                     name=entry["author"]["name"],
                     url=entry["author"]["uri"],
-                    created_at=datetime.strptime(body["feed"]["published"], "%Y-%m-%dT%H:%M:%S%z")
                 )
-
-                thumbnail = Thumbnail(
-                    url=entry["media:group"]["media:thumbnail"]["@url"],
-                    width=int(entry["media:group"]["media:thumbnail"]["@width"]),
-                    height=int(entry["media:group"]["media:thumbnail"]["@height"]),
-                )
-
-                # Uploader can hide video stats
-                stats = None
-                if "media:community" in entry["media:group"]:
-                    stats = Stats(
-                        likes=int(entry["media:group"]["media:community"]["media:starRating"]["@count"]),
-                        views=int(entry["media:group"]["media:community"]["media:statistics"]["@views"]),
-                    )
 
                 timestamp = Timestamp(
-                    published=datetime.strptime(entry["published"], "%Y-%m-%dT%H:%M:%S%z"),
-                    updated=datetime.strptime(entry["updated"], "%Y-%m-%dT%H:%M:%S%z")
+                    published=self._parse_timestamp(entry["published"]),
+                    updated=self._parse_timestamp(entry["updated"])
                 )
 
                 video = Video(
                     id=entry["yt:videoId"],
                     title=entry["title"],
-                    description=entry["media:group"]["media:description"] or "",
                     url=entry["link"]["@href"],
-                    thumbnail=thumbnail,
-                    stats=stats,
                     timestamp=timestamp,
                     channel=channel
                 )
@@ -555,6 +537,15 @@ class BaseYouTubeNotifier(ABC):
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)
 
         return Response(status_code=HTTPStatus.NO_CONTENT.value)
+
+    @staticmethod
+    def _parse_timestamp(timestamp: str) -> datetime:
+        time, zone = timestamp.split("+", 1)
+
+        # Remove fractional seconds if exists
+        time = time.split(".", 1)[0]
+
+        return datetime.strptime(f"{time}+{zone}", "%Y-%m-%dT%H:%M:%S%z")
 
     async def _is_authorized(self, request: Request) -> bool:
         x_hub_signature = request.headers.get("X-Hub-Signature")
