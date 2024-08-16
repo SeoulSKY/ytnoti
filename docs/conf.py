@@ -34,7 +34,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_title = "ytnori"
+html_title = "ytnoti"
 html_theme = "furo"
 html_show_sphinx = False
 html_theme_options = {
