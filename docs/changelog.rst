@@ -4,7 +4,7 @@ Changelog
 v2.0.1
 ------
 
-* Fixed occasionally raising TypeError when receiving the notification
+* Fixed raising TypeError when a video supports multiple languages.
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.0.0...v2.0.1
 
