@@ -513,10 +513,12 @@ class BaseYouTubeNotifier(ABC):
                     updated=self._parse_timestamp(entry["updated"])
                 )
 
+                url = entry["link"][0]["@href"] if isinstance(entry["link"], list) else entry["link"]["@href"]
+
                 video = Video(
                     id=entry["yt:videoId"],
                     title=entry["title"],
-                    url=entry["link"]["@href"],
+                    url=url,
                     timestamp=timestamp,
                     channel=channel
                 )
@@ -548,6 +550,9 @@ class BaseYouTubeNotifier(ABC):
         return datetime.strptime(f"{time}+{zone}", "%Y-%m-%dT%H:%M:%S%z")
 
     async def _is_authorized(self, request: Request) -> bool:
+        if not self._config.password:
+            return True
+
         x_hub_signature = request.headers.get("X-Hub-Signature")
         # Check if the header is missing or invalid
         if x_hub_signature is None or "=" not in x_hub_signature:
