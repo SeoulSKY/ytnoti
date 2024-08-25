@@ -5,6 +5,8 @@ This module contains the dataclasses for the video model.
 from dataclasses import dataclass
 from datetime import datetime
 
+__all__ = ["Video", "Channel", "Timestamp"]
+
 
 @dataclass
 class Channel:

@@ -1,17 +1,17 @@
-name: Pylint
+name: Pytest
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 env:
-  PYTEST_SCRIPT: scripts/pytest.sh
   NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
 
 jobs:
-  pylint:
+  pytest:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,4 +29,4 @@ jobs:
 
       - name: Run Pytest
         run: |
-          ./$PYTEST_SCRIPT
+          pytest tests

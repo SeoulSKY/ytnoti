@@ -1,13 +1,14 @@
 """
 This module contains the tests for the YouTube notifier class.
 """
+
 from datetime import datetime, timezone
 from http import HTTPStatus
 
 import httpx
 import pytest
 
-from tests import notifier, CALLBACK_URL
+from tests import notifier, CALLBACK_URL  # noqa: F401
 from ytnoti import YouTubeNotifier
 
 

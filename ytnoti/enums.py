@@ -4,6 +4,8 @@ This module defines Enum classes used in the package.
 
 from enum import Enum
 
+__all__ = ["NotificationKind", "ServerMode"]
+
 
 class NotificationKind(Enum):
     """
