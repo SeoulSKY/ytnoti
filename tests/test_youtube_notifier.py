@@ -12,22 +12,16 @@ from tests import notifier, CALLBACK_URL  # noqa: F401
 from ytnoti import YouTubeNotifier
 
 
-def test_subscribe_valid(notifier: YouTubeNotifier):
+def test_subscribe(notifier: YouTubeNotifier):
     """
     Test the subscribe method of the YouTubeNotifier class.
     """
 
-    valid_channel_ids = ["UCPF-oYb2-xN5FbCXy0167Gg", "UC9EEyg7QBL-stRX-7hTV3ng", "UCupvZG-5ko_eiXAupbDfxWw"]
-    notifier.subscribe(valid_channel_ids)
-
-
-def test_subscribe_invalid(notifier: YouTubeNotifier):
-    """
-    Test the subscribe method of the YouTubeNotifier class with an invalid channel ID.
-    """
+    channel_ids = ["UCPF-oYb2-xN5FbCXy0167Gg", "UC9EEyg7QBL-stRX-7hTV3ng", "UCupvZG-5ko_eiXAupbDfxWw"]
+    notifier.subscribe(channel_ids)
 
     with pytest.raises(ValueError):
-        notifier.subscribe("invalid_channel_id")
+        notifier.subscribe("Invalid")
 
 def test_get(notifier: YouTubeNotifier):
     """
