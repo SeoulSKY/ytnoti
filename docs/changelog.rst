@@ -4,7 +4,7 @@ Changelog
 v2.0.1
 ------
 
-Fix occasionally raising TypeError when received the notification
+Fix occasionally raising TypeError when receiving the notification
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.0.0...v2.0.1
 
