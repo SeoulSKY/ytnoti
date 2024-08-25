@@ -3,9 +3,7 @@ This module contains the setup code that runs before the tests in this package.
 """
 
 import os
-import signal
 import time
-from signal import raise_signal
 from threading import Thread
 
 import pytest
@@ -39,6 +37,3 @@ def notifier():
         time.sleep(0.1)
 
     yield noti
-
-    raise_signal(signal.SIGINT)
-    thread.join(timeout=10)

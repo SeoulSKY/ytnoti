@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "ytnoti"
 copyright = "2024 - Present, SeoulSKY"
 author = "SeoulSKY"
-release = "2.0.0"
+release = "2.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
