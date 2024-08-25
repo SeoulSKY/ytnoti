@@ -3,10 +3,7 @@ This module contains the setup code that runs before the tests in this package.
 """
 
 import os
-import signal
-import sys
 import time
-from signal import raise_signal
 from threading import Thread
 
 import pytest
