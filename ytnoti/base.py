@@ -365,6 +365,13 @@ class BaseYouTubeNotifier(ABC):
         if isinstance(channel_ids, str):
             channel_ids = [channel_ids]
 
+        async with AsyncClient() as client:
+            for channel_id in channel_ids:
+                response = await client.head(f"https://www.youtube.com/channel/{channel_id}")
+
+                if response.status_code != HTTPStatus.OK.value:
+                    raise ValueError(f"Invalid channel ID: {channel_id}")
+
         if not self.is_ready:
             self._subscribed_ids.update(channel_ids)
             return
@@ -387,13 +394,6 @@ class BaseYouTubeNotifier(ABC):
         :raises ConnectionError: If this method is called while the server is not listening.
         :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
         """
-
-        async with AsyncClient() as client:
-            for channel_id in channel_ids:
-                response = await client.head(f"https://www.youtube.com/channel/{channel_id}")
-
-                if response.status_code != HTTPStatus.OK.value:
-                    raise ValueError(f"Invalid channel ID: {channel_id}")
 
         for channel_id in channel_ids:
             async with AsyncClient() as client:
