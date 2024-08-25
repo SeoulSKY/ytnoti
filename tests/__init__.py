@@ -3,7 +3,10 @@ This module contains the setup code that runs before the tests in this package.
 """
 
 import os
+import signal
+import sys
 import time
+from signal import raise_signal
 from threading import Thread
 
 import pytest
@@ -19,7 +22,7 @@ load_dotenv()
 ngrok.set_auth_token(os.getenv("NGROK_TOKEN"))
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def notifier():
     """
     Setup/Teardown code that runs before and after the tests in this package.

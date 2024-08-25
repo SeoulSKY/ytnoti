@@ -151,4 +151,5 @@ def test_post(notifier: YouTubeNotifier):
 
     notifier._config.password = "password"
     response = httpx.post(CALLBACK_URL, headers=headers, content=xmls[0])
+    notifier._config.password = ""
     assert response.status_code == HTTPStatus.UNAUTHORIZED
