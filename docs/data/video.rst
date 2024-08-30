@@ -9,6 +9,4 @@ Video
 
     Video
     Channel
-    Stats
-    Thumbnail
     Timestamp

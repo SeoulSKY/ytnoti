@@ -39,7 +39,7 @@ class InMemoryVideoHistory(VideoHistory):
         """Create a new InMemoryVideoHistory instance.
 
         :param cache_size: The size of the cache.
-        If the cache is full, the oldest video will be removed.
+            If the cache is full, the oldest video will be removed.
         """
         self._logger = logging.getLogger(self.__class__.__name__)
         self._video_ids: OrderedDict[str, None] = OrderedDict()
@@ -93,7 +93,7 @@ class FileVideoHistory(VideoHistory):
 
         :param dir_path: The path to the directory to store the history files
         :param num_videos: The number of videos to keep in the history file.
-        If the number of videos exceeds this value, the oldest videos will be removed.
+            If the number of videos exceeds this value, the oldest videos will be removed.
         """
         self._logger = logging.getLogger(self.__class__.__name__)
         self._dir_path = Path(dir_path)
