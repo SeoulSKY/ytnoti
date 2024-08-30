@@ -1,3 +1,5 @@
+"""Test errors."""
+
 from http import HTTPStatus
 
 from ytnoti.errors import HTTPError

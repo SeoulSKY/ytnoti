@@ -91,9 +91,10 @@ class FileVideoHistory(VideoHistory):
     def __init__(self, *, dir_path: str | PathLike[str], num_videos: int = 100) -> None:
         """Create a new FileVideoHistory instance.
 
-        :param dir_path: The path to the directory to store the history files
+        :param dir_path: The path to the directory to store the history files.
         :param num_videos: The number of videos to keep in the history file.
-            If the number of videos exceeds this value, the oldest videos will be removed.
+            If the number of videos exceeds this value, the oldest videos will be
+            removed.
         """
         self._logger = logging.getLogger(self.__class__.__name__)
         self._dir_path = Path(dir_path)

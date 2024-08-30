@@ -1,3 +1,5 @@
+"""Test class InMemoryFileHistory."""
+
 import pytest
 
 from tests.history import get_video
