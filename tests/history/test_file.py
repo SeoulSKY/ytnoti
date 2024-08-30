@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.history import get_video
+from tests import get_video
 from ytnoti.models.history import FileVideoHistory
 
 NUM_VIDEOS = 100

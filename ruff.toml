@@ -81,6 +81,6 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [lint.per-file-ignores]
-"tests/*" = ["F811", "SLF001", "S101", "ARG001", "PT011"]
+"tests/*" = ["F811", "SLF001", "S101", "ARG001", "PT011", "PLR2004"]
 "docs/*" = ["INP001"]
 "examples/*" = ["INP001", "T201", "D401"]
