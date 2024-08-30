@@ -1,7 +1,7 @@
-"""This example demonstrates how to use the FileVideoHistory class to keep track of
-the videos that have been uploaded or edited. This class stores the video history in a
-file on the local disk. This is useful when you want to keep track of the videos that
-have been uploaded or edited, even if the program is restarted.
+"""The following example demonstrates how to use the FileVideoHistory class to keep
+track of the videos that have been uploaded or edited. This class stores the video
+history in a file on the local disk. This is useful when you want to keep track of the
+videos that have been uploaded or edited, even if the program is restarted.
 
 You can also extend the abstract class VideoHistory to create your own custom video
 history storage.
@@ -9,13 +9,12 @@ history storage.
 
 from pyngrok import ngrok
 
-from ytnoti import YouTubeNotifier, Video
+from ytnoti import Video, YouTubeNotifier
 from ytnoti.models.history import FileVideoHistory
 
 
-def main():
-    """Main function"""
-
+def main() -> None:
+    """Run the application."""
     ngrok.set_auth_token("Your ngrok token here")
 
     # This will create a new folder called "videoHistory" in the current directory
@@ -24,7 +23,7 @@ def main():
     notifier = YouTubeNotifier(video_history=video_history)
 
     @notifier.upload()
-    async def listener(video: Video):
+    async def listener(video: Video) -> None:
         print(f"New video from {video.channel.name}: {video.title}")
 
     notifier.subscribe("UCupvZG-5ko_eiXAupbDfxWw")

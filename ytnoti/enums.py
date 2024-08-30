@@ -1,4 +1,4 @@
-"""This module defines Enum classes used in the package."""
+"""Defines Enum classes used in the package."""
 
 __all__ = ["NotificationKind", "ServerMode"]
 
@@ -6,7 +6,7 @@ from enum import Enum
 
 
 class NotificationKind(Enum):
-    """Enum for the kind of notification"""
+    """Enum for the kind of notification."""
 
     UPLOAD = 0
     """Upload notification"""
@@ -19,7 +19,7 @@ class NotificationKind(Enum):
 
 
 class ServerMode(Enum):
-    """Enum for the server mode"""
+    """Enum for the server mode."""
 
     RUN = "run"
     """Create an event loop and run the server"""

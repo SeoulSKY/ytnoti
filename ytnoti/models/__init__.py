@@ -1,4 +1,4 @@
-"""This module contains the dataclasses used in the YouTubeNotifier"""
+"""Contains the dataclasses used in the YouTubeNotifier."""
 
 from dataclasses import dataclass
 
@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 @dataclass
 class YouTubeNotifierConfig:
-    """Represents the configuration of the YouTubeNotifier"""
+    """Represents the configuration of the YouTubeNotifier."""
 
     callback_url: str | None
     """The URL to receive notifications from YouTube"""

@@ -1,8 +1,8 @@
-"""Setup script for ytnoti"""
+"""Setup script for ytnoti."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
-with open("README.md", encoding="utf-8") as file:
+with open("README.md", encoding="utf-8") as file:  # noqa: PTH123
     long_description = file.read()
 
 setup(

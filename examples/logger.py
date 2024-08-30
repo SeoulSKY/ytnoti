@@ -1,24 +1,22 @@
-"""Example of a simple YouTube Notifier with logging module"""
+"""THe following is an example of a simple YouTube Notifier with logging module."""
 
 import logging
 
 from pyngrok import ngrok
 
-from ytnoti import YouTubeNotifier, Video
+from ytnoti import Video, YouTubeNotifier
 
 
-def main():
-    """Main function"""
-
+def main() -> None:
+    """Run the application."""
     ngrok.set_auth_token("Your ngrok token here")
 
     logger = logging.getLogger(__name__)
     notifier = YouTubeNotifier()
 
     @notifier.upload()
-    async def listener(video: Video):
-        """Listener called when a video is uploaded or edited for any channel"""
-
+    async def listener(video: Video) -> None:
+        """Listener called when a video is uploaded or edited for any channel."""
         logger.info("New video from %s: %s", video.channel.name, video.title)
 
     logging.basicConfig(

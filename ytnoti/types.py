@@ -1,6 +1,7 @@
-"""This module contains type hints for the library."""
+"""Contains type hints for the library."""
 
-from typing import Callable, Coroutine, Any, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar
 
 from ytnoti.models.video import Video
 

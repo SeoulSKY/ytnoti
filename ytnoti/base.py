@@ -1,31 +1,32 @@
-"""This module contains abstract base classes for the library."""
+"""Contains abstract base classes for the library."""
 
-from abc import ABC, abstractmethod
 import asyncio
+import hmac
 import logging
-import random
+import secrets
 import string
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from http import HTTPStatus
+from pyexpat import ExpatError
 from threading import Thread
-from typing import Self, Literal, Iterable, Any, Callable
-import hmac
+from typing import Any, Literal, Self
 from urllib.parse import urlparse
 
-from httpx import AsyncClient
 import xmltodict
-from fastapi import FastAPI, Request, Response, APIRouter
+from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
+from httpx import AsyncClient
+from pyngrok import ngrok
 from starlette.routing import Route
 from uvicorn import Config, Server
-from pyngrok import ngrok
-from pyexpat import ExpatError
 
 from ytnoti.enums import NotificationKind, ServerMode
 from ytnoti.errors import HTTPError
 from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
-from ytnoti.models.video import Channel, Video, Timestamp
+from ytnoti.models.video import Channel, Timestamp, Video
 from ytnoti.types import NotificationListener
 
 
@@ -38,23 +39,22 @@ class BaseYouTubeNotifier(ABC):
         self,
         logger: logging.Logger,
         *,
-        callback_url: str = None,
-        password: str = None,
+        callback_url: str | None = None,
+        password: str | None = None,
         video_history: VideoHistory = None,
     ) -> None:
         """Set up the YouTubeNotifier instance.
 
         :param logger: The logger to use for logging.
         :param callback_url: The URL to receive push notifications.
-        If not provided, ngrok will be used to create a temporary URL.
+            If not provided, ngrok will be used to create a temporary URL.
         :param password: The password to use for verifying push notifications.
-        If not provided, a random password will be generated.
+            If not provided, a random password will be generated.
         :param video_history: The video history to use to prevent duplicate
-        notifications.
-        If not provided,
-        a new instance of InMemoryVideoHistory will be created and used.
+            notifications.
+            If not provided,
+            a new instance of InMemoryVideoHistory will be created and used.
         """
-
         self.__logger = logger
         self._config = YouTubeNotifierConfig(
             callback_url,
@@ -63,7 +63,7 @@ class BaseYouTubeNotifier(ABC):
             FastAPI(),
             callback_url is None,
             password
-            or str("".join(random.choice(string.ascii_letters) for _ in range(20))),
+            or str("".join(secrets.choice(string.ascii_letters) for _ in range(20))),
         )
         self._listeners: dict[
             NotificationKind, dict[str, list[NotificationListener]]
@@ -82,12 +82,11 @@ class BaseYouTubeNotifier(ABC):
 
     @property
     def callback_url(self) -> str | None:
-        """Get the callback URL. If the callback URL was not provided when creating 
+        """Get the callback URL. If the callback URL was not provided when creating
         the instance, it will become available after the notifier is started.
 
         :return: The callback URL.
         """
-
         return self._config.callback_url
 
     @property
@@ -99,17 +98,16 @@ class BaseYouTubeNotifier(ABC):
         return self._server is not None
 
     def listener(
-        self, *, kind: NotificationKind, channel_ids: str | Iterable[str] = None
+        self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
     ) -> Callable[[NotificationListener], NotificationListener]:
-        """A decorator to add a listener for push notifications.
+        """Decorate the function to add a listener for push notifications.
 
         :param kind: The kind of notification to listen for.
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The decorator function.
         :raises ValueError: If the channel ID is '_all'.
         """
-
         def decorator(func: NotificationListener) -> NotificationListener:
             self.add_listener(func, kind, channel_ids)
 
@@ -118,60 +116,56 @@ class BaseYouTubeNotifier(ABC):
         return decorator
 
     def any(
-        self, *, channel_ids: str | Iterable[str] = None
+        self, *, channel_ids: str | Iterable[str] | None = None
     ) -> Callable[[NotificationListener], NotificationListener]:
-        """A decorator to add a listener for any kind of push notification.
+        """Decorate the function to add a listener for any kind of push notification.
         Alias for @listener(kind=NotificationKind.ANY).
 
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-
         return self.listener(kind=NotificationKind.ANY, channel_ids=channel_ids)
 
     def upload(
-        self, *, channel_ids: str | Iterable[str] = None
+        self, *, channel_ids: str | Iterable[str] | None = None
     ) -> Callable[[NotificationListener], NotificationListener]:
-        """A decorator to add a listener for when a video is uploaded.
+        """Decorate the function to add a listener for when a video is uploaded.
         Alies for @listener(kind=NotificationKind.UPLOAD).
 
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-
         return self.listener(kind=NotificationKind.UPLOAD, channel_ids=channel_ids)
 
     def edit(
-        self, *, channel_ids: str | Iterable[str] = None
+        self, *, channel_ids: str | Iterable[str] | None = None
     ) -> Callable[[NotificationListener], NotificationListener]:
-        """A decorator to add a listener for when a video is edited.
+        """Decorate the function to add a listener for when a video is edited.
         Alies for @listener(kind=NotificationKind.EDIT).
 
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-
         return self.listener(kind=NotificationKind.EDIT, channel_ids=channel_ids)
 
     def add_listener(
         self,
         func: NotificationListener,
         kind: NotificationKind,
-        channel_ids: str | Iterable[str] = None,
+        channel_ids: str | Iterable[str] | None = None,
     ) -> Self:
         """Add a listener for push notifications.
 
         :param func: The listener function to add.
         :param kind: The kind of notification to listen for.
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         :raises ValueError: If the channel ID is '_all'.
         """
-
         if channel_ids is None:
             self._get_listeners(kind, None).append(func)
             self.__logger.debug(
@@ -184,7 +178,8 @@ class BaseYouTubeNotifier(ABC):
 
         for channel_id in channel_ids:
             if channel_id == self._ALL_LISTENER_KEY:
-                raise ValueError(f"Channel ID cannot be '{self._ALL_LISTENER_KEY}'")
+                message = f"Channel ID cannot be '{self._ALL_LISTENER_KEY}'"
+                raise ValueError(message)
 
             self._get_listeners(kind, channel_id).append(func)
             self.__logger.debug(
@@ -197,45 +192,42 @@ class BaseYouTubeNotifier(ABC):
         return self
 
     def add_any_listener(
-        self, func: NotificationListener, channel_ids: str | Iterable[str] = None
+        self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
         """Add a listener for any kind of push notification.
         Alias for add_listener(func, NotificationKind.ANY, channel_ids).
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-
         return self.add_listener(func, NotificationKind.ANY, channel_ids)
 
     def add_upload_listener(
-        self, func: NotificationListener, channel_ids: str | Iterable[str] = None
+        self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
         """Add a listener for when a video is uploaded.
         Alias for add_listener(func, NotificationKind.UPLOAD, channel_ids).
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-
         return self.add_listener(func, NotificationKind.UPLOAD, channel_ids)
 
     def add_edit_listener(
-        self, func: NotificationListener, channel_ids: str | Iterable[str] = None
+        self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
         """Add a listener for when a video is edited.
         Alias for add_listener(func, NotificationKind.EDIT, channel_ids).
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
-        If not provided, the listener will be called for all channels.
+            If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-
         return self.add_listener(func, NotificationKind.EDIT, channel_ids)
 
     async def _get_kind(self, video: Video) -> NotificationKind:
@@ -244,7 +236,6 @@ class BaseYouTubeNotifier(ABC):
         :param video: The video to get the kind of notification for.
         :return: The kind of notification.
         """
-
         if video.timestamp.updated == video.timestamp.published:
             return NotificationKind.UPLOAD
 
@@ -261,10 +252,9 @@ class BaseYouTubeNotifier(ABC):
 
         :param kind: The kind of notification.
         :param channel_id: The channel ID to get the listeners for.
-        If not provided, the listeners for all channels
+            If not provided, the listeners for all channels
         :return: The listeners for the given kind and channel ID.
         """
-
         key = channel_id or self._ALL_LISTENER_KEY
         listeners = self._listeners[kind].get(key, None)
         if listeners is None:
@@ -278,7 +268,6 @@ class BaseYouTubeNotifier(ABC):
 
         :return: The FastAPI router.
         """
-
         router = APIRouter()
         endpoint = urlparse(self._config.callback_url).path or "/"
         router.add_api_route(endpoint, self._get, methods=["HEAD", "GET"])
@@ -286,17 +275,16 @@ class BaseYouTubeNotifier(ABC):
 
         return router
 
-    def _get_server_config(self, **configs) -> Config:
+    def _get_server_config(self, **configs: Any) -> Config:  # noqa: ANN401
         """Get the server configuration.
 
         :param configs: Additional arguments to pass to the server configuration.
         :return: The server configuration.
         """
-
         return Config(self._config.app, self._config.host, self._config.port, **configs)
 
     def _get_server(
-        self, *, host: str, port: int, app: FastAPI = None, **configs: Any
+        self, *, host: str, port: int, app: FastAPI = None, **configs: Any  # noqa: ANN401
     ) -> Server:
         """Create a server instance to receive push notifications.
 
@@ -307,9 +295,8 @@ class BaseYouTubeNotifier(ABC):
         :param configs: Additional arguments to pass to the server configuration.
         :return: The server instance.
         :raises ValueError: If the given app instance has a route that conflicts with
-        the notifier's routes.
+            the notifier's routes.
         """
-
         self._config.host = host
         self._config.port = port
         self._config.app = app or self._config.app
@@ -322,7 +309,7 @@ class BaseYouTubeNotifier(ABC):
         endpoint = urlparse(self._config.callback_url).path or "/"
 
         if any(
-            isinstance(route, (APIRoute, Route)) and route.path == endpoint
+            isinstance(route, APIRoute | Route) and route.path == endpoint
             for route in self._config.app.routes
         ):
             raise ValueError(
@@ -332,15 +319,15 @@ class BaseYouTubeNotifier(ABC):
 
         self._config.app.include_router(self._get_router())
 
-        async def on_ready():
-            while not await self._is_listening():
+        async def on_ready() -> None:
+            while not await self._is_listening():  # noqa: ASYNC110
                 await asyncio.sleep(0.1)
 
             self._server = server
 
             await self._register(self._subscribed_ids)
 
-        async def repeat_subscribe(interval: float):
+        async def repeat_subscribe(interval: float) -> None:
             while True:
                 await asyncio.sleep(interval)
                 await self._register(self._subscribed_ids)
@@ -349,21 +336,19 @@ class BaseYouTubeNotifier(ABC):
             "startup", lambda: asyncio.create_task(on_ready())
         )
         self._config.app.add_event_handler(
-            "startup",
-            lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24))
+            "startup", lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24))
         )
 
         server = Server(
             Config(self._config.app, self._config.host, self._config.port, **configs)
         )
-        return server
+        return server  # noqa: RET504
 
     async def _is_listening(self) -> bool:
         """Check if the server is listening for push notifications.
 
         :return: True if the server is listening, False otherwise.
         """
-
         try:
             async with AsyncClient() as client:
                 response = await client.head(
@@ -382,9 +367,8 @@ class BaseYouTubeNotifier(ABC):
         :param channel_ids: The channel ID(s) to subscribe to.
         :raises ValueError: If the channel ID is invalid.
         :raises HTTPError: If failed to verify the channel ID or failed to subscribe
-        due to an HTTP error.
+            due to an HTTP error.
         """
-
         if isinstance(channel_ids, str):
             channel_ids = [channel_ids]
 
@@ -418,10 +402,9 @@ class BaseYouTubeNotifier(ABC):
         :param mode: The mode to use. Either 'subscribe' or 'unsubscribe'.
         :raises ValueError: If an invalid channel ID is provided.
         :raises ConnectionError: If this method is called while the server is not
-        listening.
+            listening.
         :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
         """
-
         for channel_id in channel_ids:
             async with AsyncClient() as client:
                 self.__logger.debug(
@@ -466,7 +449,6 @@ class BaseYouTubeNotifier(ABC):
         """Request to gracefully stop the notifier.
         If the notifier is not running, this method will do nothing.
         """
-
         if not self.is_ready:
             return
 
@@ -477,9 +459,8 @@ class BaseYouTubeNotifier(ABC):
         """Clean up the notifier.
 
         :param running_server: The running server instance, or None if the server is
-        not running.
+            not running.
         """
-
         self.__logger.debug("Cleaning up the notifier")
 
         # Ngrok is already stopped at this point, so we can't unsubscribe if we are
@@ -505,9 +486,9 @@ class BaseYouTubeNotifier(ABC):
             if self._get_server_mode() == ServerMode.RUN:
                 Thread(target=running_server.run).start()
             else:
-                _ = asyncio.create_task(running_server.serve())
+                _ = asyncio.create_task(running_server.serve())  # noqa: RUF006
 
-        while not await self._is_listening():
+        while not await self._is_listening():  # noqa: ASYNC110
             await asyncio.sleep(0.1)
 
         await self._register(self._subscribed_ids, mode="unsubscribe")
@@ -515,27 +496,21 @@ class BaseYouTubeNotifier(ABC):
         await running_server.shutdown()
 
     @staticmethod
-    async def _get(request: Request):
-        """
-        Handle a challenge from the Google pubsubhubbub server.
-        """
-
+    async def _get(request: Request) -> Response:
+        """Handle a challenge from the Google pubsubhubbub server."""
         challenge = request.query_params.get("hub.challenge")
         if challenge is None:
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)
 
         return Response(challenge)
 
-    async def _post(self, request: Request):
-        """
-        Handle push notifications from the Google pubsubhubbub server.
-        """
-
+    async def _post(self, request: Request) -> Response:
+        """Handle push notifications from the Google pubsubhubbub server."""
         if not await self._is_authorized(request):
             return Response(status_code=HTTPStatus.UNAUTHORIZED.value)
 
         try:
-            body = xmltodict.parse((await request.body()))
+            body = xmltodict.parse(await request.body())
         except ExpatError:
             return Response(status_code=HTTPStatus.BAD_REQUEST.value)
 

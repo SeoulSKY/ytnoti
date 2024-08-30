@@ -1,24 +1,22 @@
-"""This is an example of how to use this library with multithreading."""
+"""THe Following is an example of how to use this library with multithreading."""
 
 import time
 from threading import Thread
 
 from pyngrok import ngrok
 
-from ytnoti import YouTubeNotifier, Video
+from ytnoti import Video, YouTubeNotifier
 
 
-def main():
-    """Main function"""
-
+def main() -> None:
+    """Run the application."""
     ngrok.set_auth_token("Your ngrok token here")
 
     notifier = YouTubeNotifier()
 
     @notifier.any()
-    async def listener1(video: Video):
-        """Listener called when a video is uploaded or edited for any channel"""
-
+    async def listener1(video: Video) -> None:
+        """Listener called when a video is uploaded or edited for any channel."""
         print("listener 1 called")
         print(video)
 
@@ -34,9 +32,8 @@ def main():
 
     print("Adding listener 2 and subscribing to another channel")
 
-    async def listener2(video: Video):
-        """Listener called when a video is uploaded or edited for any channel"""
-
+    async def listener2(video: Video) -> None:
+        """Listener called when a video is uploaded or edited for any channel."""
         print("listener 2 called")
         print(video)
 

@@ -1,4 +1,4 @@
-"""This module contains the video history model."""
+"""Contains the video history model."""
 
 import logging
 from abc import ABC, abstractmethod
@@ -10,7 +10,7 @@ from threading import Lock
 import aiofiles
 from aiofiles import os, ospath
 
-from ytnoti.models.video import Video, Channel
+from ytnoti.models.video import Channel, Video
 
 
 class VideoHistory(ABC):
@@ -41,7 +41,6 @@ class InMemoryVideoHistory(VideoHistory):
         :param cache_size: The size of the cache.
         If the cache is full, the oldest video will be removed.
         """
-
         self._logger = logging.getLogger(self.__class__.__name__)
         self._video_ids: OrderedDict[str, None] = OrderedDict()
         self._cache_size = cache_size
@@ -53,7 +52,6 @@ class InMemoryVideoHistory(VideoHistory):
 
         :return: The size of the cache.
         """
-
         with self._lock:
             return self._cache_size
 
@@ -64,6 +62,10 @@ class InMemoryVideoHistory(VideoHistory):
             self._cache_size = value
 
     async def add(self, video: Video) -> None:
+        """Add a video to the history.
+
+        :param video: The video to add.
+        """
         with self._lock:
             if video.id in self._video_ids:
                 return
@@ -75,6 +77,10 @@ class InMemoryVideoHistory(VideoHistory):
             self._video_ids[video.id] = None
 
     async def has(self, video: Video) -> bool:
+        """Check if a video is in the history.
+
+        :param video: The video to check.
+        """
         with self._lock:
             return video.id in self._video_ids
 
@@ -89,7 +95,6 @@ class FileVideoHistory(VideoHistory):
         :param num_videos: The number of videos to keep in the history file.
         If the number of videos exceeds this value, the oldest videos will be removed.
         """
-
         self._logger = logging.getLogger(self.__class__.__name__)
         self._dir_path = Path(dir_path)
         self._num_videos = num_videos
@@ -100,12 +105,10 @@ class FileVideoHistory(VideoHistory):
 
         :param channel: The channel to get the history file for.
         """
-
         return self._dir_path / channel.id
 
-    async def _truncate(self, channel: Channel):
+    async def _truncate(self, channel: Channel) -> None:
         """Truncate the history file for a channel."""
-
         path = self._get_path(channel)
 
         if not await ospath.exists(path):
@@ -118,6 +121,9 @@ class FileVideoHistory(VideoHistory):
             await file.writelines(lines[-self._num_videos :])
 
     async def add(self, video: Video) -> None:
+        """Add a video to the history.
+        :param video: The video to add.
+        """
         await os.wrap(self._dir_path.mkdir)(parents=True, exist_ok=True)
 
         path = self._get_path(video.channel)
@@ -132,6 +138,10 @@ class FileVideoHistory(VideoHistory):
             await self._truncate(video.channel)
 
     async def has(self, video: Video) -> bool:
+        """Check if a video is in the history.
+
+        :param video: The video to check.
+        """
         path = self._get_path(video.channel)
 
         with self._lock:

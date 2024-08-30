@@ -1,5 +1,4 @@
-"""
-Configuration file for the Sphinx documentation builder.
+"""Configuration file for the Sphinx documentation builder.
 
 For the full list of built-in configuration values, see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
@@ -10,13 +9,13 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath(".."))  # noqa: PTH100
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "ytnoti"
-copyright = "2024 - Present, SeoulSKY"
+copyright = "2024 - Present, SeoulSKY"  # noqa: A001
 author = "SeoulSKY"
 release = "2.0.1"
 

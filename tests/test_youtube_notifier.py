@@ -1,18 +1,17 @@
-"""This module contains the tests for the YouTube notifier class."""
+"""Contains the tests for the YouTube notifier class."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 import httpx
 import pytest
 
-from tests import notifier, CALLBACK_URL  # noqa: F401
+from tests import CALLBACK_URL, notifier  # noqa: F401
 from ytnoti import YouTubeNotifier
 
 
-def test_subscribe(notifier: YouTubeNotifier):
+def test_subscribe(notifier: YouTubeNotifier) -> None:
     """Test the subscribe method of the YouTubeNotifier class."""
-
     channel_ids = [
         "UCPF-oYb2-xN5FbCXy0167Gg",
         "UC9EEyg7QBL-stRX-7hTV3ng",
@@ -24,9 +23,8 @@ def test_subscribe(notifier: YouTubeNotifier):
         notifier.subscribe("Invalid")
 
 
-def test_get(notifier: YouTubeNotifier):
+def test_get(notifier: YouTubeNotifier) -> None:
     """Test the get method of the YouTubeNotifier class."""
-
     response = httpx.get(CALLBACK_URL)
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
@@ -34,17 +32,15 @@ def test_get(notifier: YouTubeNotifier):
     assert response.status_code == HTTPStatus.OK
 
 
-def test_parse_timestamp(notifier: YouTubeNotifier):
-    """Test parsing timestamp"""
-
+def test_parse_timestamp(notifier: YouTubeNotifier) -> None:
+    """Test parsing timestamp."""
     timestamp = "2015-04-01T19:05:24.552394234+00:00"
     parsed_timestamp = notifier._parse_timestamp(timestamp)
-    assert parsed_timestamp == datetime(2015, 4, 1, 19, 5, 24, tzinfo=timezone.utc)
+    assert parsed_timestamp == datetime(2015, 4, 1, 19, 5, 24, tzinfo=UTC)
 
 
-def test_post(notifier: YouTubeNotifier):
+def test_post(notifier: YouTubeNotifier) -> None:
     """Test the post method of the YouTubeNotifier class."""
-
     headers = {"Content-Type": "application/xml"}
 
     xmls = [
@@ -136,7 +132,7 @@ def test_post(notifier: YouTubeNotifier):
     response = httpx.post(CALLBACK_URL, headers=headers, content="Invalid")
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
-    notifier._config.password = "password"
+    notifier._config.password = "password"  # noqa: S105
     response = httpx.post(CALLBACK_URL, headers=headers, content=xmls[0])
     notifier._config.password = ""
     assert response.status_code == HTTPStatus.UNAUTHORIZED

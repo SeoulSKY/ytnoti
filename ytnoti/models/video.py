@@ -1,4 +1,4 @@
-"""This module contains the dataclasses for the video model."""
+"""Contains the dataclasses for the video model."""
 
 __all__ = ["Video", "Channel", "Timestamp"]
 
@@ -9,9 +9,7 @@ from datetime import datetime
 
 @dataclass
 class Channel:
-    """
-    Represents a YouTube channel
-    """
+    """Represents a YouTube channel."""
 
     id: str
     """The unique ID of the channel"""
@@ -25,9 +23,7 @@ class Channel:
 
 @dataclass
 class Timestamp:
-    """
-    Represents the timestamps of a video
-    """
+    """Represents the timestamps of a video."""
 
     published: datetime
     """The published time of the video"""
@@ -38,9 +34,7 @@ class Timestamp:
 
 @dataclass
 class Video:
-    """
-    Represents a YouTube video
-    """
+    """Represents a YouTube video."""
 
     id: str
     """The unique ID of the video"""
