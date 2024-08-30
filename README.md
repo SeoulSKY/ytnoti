@@ -13,6 +13,9 @@
     <img src="https://img.shields.io/github/license/SeoulSKY/ytnoti">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/ruff.yml/badge.svg">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/pytest.yml/badge.svg">
+    <a href="https://codecov.io/github/SeoulSKY/ytnoti">
+        <img src="https://codecov.io/github/SeoulSKY/ytnoti/graph/badge.svg?token=RYRIXW3LBO"/>
+    </a>
 </div>
 
 `ytnoti` is designed to help you receive YouTube push notifications in real-time for video

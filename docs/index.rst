@@ -30,6 +30,9 @@ ytnoti
     :target: https://github.com/SeoulSKY/ytnoti/actions/workflows/pytest.yml/badge.svg
     :alt: Pytest
 
+.. image:: https://codecov.io/github/SeoulSKY/ytnoti/graph/badge.svg?token=RYRIXW3LBO
+    :target: https://codecov.io/github/SeoulSKY/ytnoti
+
 ytnoti is designed to help you receive YouTube push notifications in real-time for video
 upload and edit easily and efficiently.
 
