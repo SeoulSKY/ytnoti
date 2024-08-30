@@ -53,7 +53,7 @@ html_theme_options = {
             "url": "https://discord.gg/kQZDJJB",
             "html": "",
             "class": "fa-brands fa-solid fa-discord fa-2x",
-        }
+        },
     ],
 }
 html_css_files = [
@@ -68,7 +68,7 @@ autodoc_default_options = {
     "member-order": "bysource",
     "special-members": "__init__",
     "undoc-members": True,
-    "exclude-members": "__weakref__"
+    "exclude-members": "__weakref__",
 }
 
 autosummary_generate = True

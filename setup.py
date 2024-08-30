@@ -1,7 +1,4 @@
-"""
-Setup script for ytnoti
-"""
-
+"""Setup script for ytnoti"""
 
 from setuptools import setup, find_packages
 
@@ -14,7 +11,8 @@ setup(
     packages=find_packages(),
     author="SeoulSKY",
     author_email="contact@seoulsky.org",
-    description="Easy-to-use python library for receiving YouTube push notification for video upload and edit",
+    description="Easy-to-use Python library for receiving YouTube push notification "
+    "for video upload and edit in real-time",
     long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[

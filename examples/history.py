@@ -1,9 +1,10 @@
-"""
-This example demonstrates how to use the FileVideoHistory class to keep track of the videos that have been
-uploaded or edited. This class stores the video history in a file on the local disk. This is useful when you want to
-keep track of the videos that have been uploaded or edited, even if the program is restarted.
+"""This example demonstrates how to use the FileVideoHistory class to keep track of
+the videos that have been uploaded or edited. This class stores the video history in a
+file on the local disk. This is useful when you want to keep track of the videos that
+have been uploaded or edited, even if the program is restarted.
 
-You can also extend the abstract class VideoHistory to create your own custom video history storage.
+You can also extend the abstract class VideoHistory to create your own custom video
+history storage.
 """
 
 from pyngrok import ngrok
@@ -13,9 +14,7 @@ from ytnoti.models.history import FileVideoHistory
 
 
 def main():
-    """
-    Main function
-    """
+    """Main function"""
 
     ngrok.set_auth_token("Your ngrok token here")
 

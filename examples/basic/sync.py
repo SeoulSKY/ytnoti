@@ -1,5 +1,5 @@
-"""
-This example demonstrates how to use the YouTubeNotifier to listen for new video uploads from a channel.
+"""This example demonstrates how to use the YouTubeNotifier to listen for new video
+uploads from a channel.
 """
 
 from pyngrok import ngrok
@@ -8,9 +8,7 @@ from ytnoti import YouTubeNotifier, Video
 
 
 def main():
-    """
-    Main function
-    """
+    """Main function"""
 
     ngrok.set_auth_token("Your ngrok token here")
 

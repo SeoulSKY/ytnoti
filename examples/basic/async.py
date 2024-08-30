@@ -1,5 +1,5 @@
-"""
-This example demonstrates how to use the AsyncYouTubeNotifier to listen for new video uploads from a channel.
+"""This example demonstrates how to use the AsyncYouTubeNotifier to listen for new
+video uploads from a channel.
 """
 
 import asyncio
@@ -10,9 +10,7 @@ from ytnoti import AsyncYouTubeNotifier, Video
 
 
 async def main():
-    """
-    Main function
-    """
+    """Main function"""
 
     ngrok.set_auth_token("Your ngrok token here")
 
@@ -20,9 +18,7 @@ async def main():
 
     @notifier.upload()
     async def listener(video: Video):
-        """
-        Listener called when a video is uploaded for any channel
-        """
+        """Listener called when a video is uploaded for any channel"""
 
         print(f"New video from {video.channel.name}: {video.title}")
 

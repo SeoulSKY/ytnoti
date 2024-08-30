@@ -1,11 +1,10 @@
-"""
-This module contains the dataclasses for the video model.
-"""
+"""This module contains the dataclasses for the video model."""
+
+__all__ = ["Video", "Channel", "Timestamp"]
+
 
 from dataclasses import dataclass
 from datetime import datetime
-
-__all__ = ["Video", "Channel", "Timestamp"]
 
 
 @dataclass

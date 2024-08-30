@@ -1,6 +1,4 @@
-"""
-This module contains the tests for the YouTube notifier class.
-"""
+"""This module contains the tests for the YouTube notifier class."""
 
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -13,20 +11,21 @@ from ytnoti import YouTubeNotifier
 
 
 def test_subscribe(notifier: YouTubeNotifier):
-    """
-    Test the subscribe method of the YouTubeNotifier class.
-    """
+    """Test the subscribe method of the YouTubeNotifier class."""
 
-    channel_ids = ["UCPF-oYb2-xN5FbCXy0167Gg", "UC9EEyg7QBL-stRX-7hTV3ng", "UCupvZG-5ko_eiXAupbDfxWw"]
+    channel_ids = [
+        "UCPF-oYb2-xN5FbCXy0167Gg",
+        "UC9EEyg7QBL-stRX-7hTV3ng",
+        "UCupvZG-5ko_eiXAupbDfxWw",
+    ]
     notifier.subscribe(channel_ids)
 
     with pytest.raises(ValueError):
         notifier.subscribe("Invalid")
 
+
 def test_get(notifier: YouTubeNotifier):
-    """
-    Test the get method of the YouTubeNotifier class.
-    """
+    """Test the get method of the YouTubeNotifier class."""
 
     response = httpx.get(CALLBACK_URL)
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -36,9 +35,7 @@ def test_get(notifier: YouTubeNotifier):
 
 
 def test_parse_timestamp(notifier: YouTubeNotifier):
-    """
-    Test parsing timestamp
-    """
+    """Test parsing timestamp"""
 
     timestamp = "2015-04-01T19:05:24.552394234+00:00"
     parsed_timestamp = notifier._parse_timestamp(timestamp)
@@ -46,13 +43,9 @@ def test_parse_timestamp(notifier: YouTubeNotifier):
 
 
 def test_post(notifier: YouTubeNotifier):
-    """
-    Test the post method of the YouTubeNotifier class.
-    """
+    """Test the post method of the YouTubeNotifier class."""
 
-    headers = {
-        "Content-Type": "application/xml"
-    }
+    headers = {"Content-Type": "application/xml"}
 
     xmls = [
         """

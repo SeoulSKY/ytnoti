@@ -1,6 +1,4 @@
-"""
-This module contains the video history model.
-"""
+"""This module contains the video history model."""
 
 import logging
 from abc import ABC, abstractmethod
@@ -16,22 +14,18 @@ from ytnoti.models.video import Video, Channel
 
 
 class VideoHistory(ABC):
-    """
-    Represents a history of videos.
-    """
+    """Represents a history of videos."""
 
     @abstractmethod
     async def add(self, video: Video) -> None:
-        """
-        Add a video to the history.
+        """Add a video to the history.
 
         :param video: The video to add.
         """
 
     @abstractmethod
     async def has(self, video: Video) -> bool:
-        """
-        Check if a video is in the history.
+        """Check if a video is in the history.
 
         :param video: The video to check.
         :return: True if the video is in the history, False otherwise.
@@ -39,15 +33,13 @@ class VideoHistory(ABC):
 
 
 class InMemoryVideoHistory(VideoHistory):
-    """
-    Represents an in-memory history of notifications.
-    """
+    """Represents an in-memory history of notifications."""
 
     def __init__(self, *, cache_size: int = 5000) -> None:
-        """
-        Create a new InMemoryVideoHistory instance.
+        """Create a new InMemoryVideoHistory instance.
 
-        :param cache_size: The size of the cache. If the cache is full, the oldest video will be removed.
+        :param cache_size: The size of the cache.
+        If the cache is full, the oldest video will be removed.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -57,8 +49,7 @@ class InMemoryVideoHistory(VideoHistory):
 
     @property
     def cache_size(self) -> int:
-        """
-        Get the size of the cache.
+        """Get the size of the cache.
 
         :return: The size of the cache.
         """
@@ -89,17 +80,14 @@ class InMemoryVideoHistory(VideoHistory):
 
 
 class FileVideoHistory(VideoHistory):
-    """
-    Represents a file-based history of videos.
-    """
+    """Represents a file-based history of videos."""
 
     def __init__(self, *, dir_path: str | PathLike[str], num_videos: int = 100) -> None:
-        """
-        Create a new FileVideoHistory instance.
+        """Create a new FileVideoHistory instance.
 
         :param dir_path: The path to the directory to store the history files
-        :param num_videos: The number of videos to keep in the history file. If the number of videos exceeds this value,
-                           the oldest videos will be removed.
+        :param num_videos: The number of videos to keep in the history file.
+        If the number of videos exceeds this value, the oldest videos will be removed.
         """
 
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -108,8 +96,7 @@ class FileVideoHistory(VideoHistory):
         self._lock = Lock()
 
     def _get_path(self, channel: Channel) -> Path:
-        """
-        Get the path to the history file for a channel.
+        """Get the path to the history file for a channel.
 
         :param channel: The channel to get the history file for.
         """
@@ -117,9 +104,7 @@ class FileVideoHistory(VideoHistory):
         return self._dir_path / channel.id
 
     async def _truncate(self, channel: Channel):
-        """
-        Truncate the history file for a channel.
-        """
+        """Truncate the history file for a channel."""
 
         path = self._get_path(channel)
 
@@ -130,7 +115,7 @@ class FileVideoHistory(VideoHistory):
             lines = await file.readlines()
 
         async with aiofiles.open(path, "w", encoding="utf-8") as file:
-            await file.writelines(lines[-self._num_videos:])
+            await file.writelines(lines[-self._num_videos :])
 
     async def add(self, video: Video) -> None:
         await os.wrap(self._dir_path.mkdir)(parents=True, exist_ok=True)

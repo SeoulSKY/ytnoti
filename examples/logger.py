@@ -1,7 +1,4 @@
-"""
-Example of a simple YouTube Notifier with logging module
-"""
-
+"""Example of a simple YouTube Notifier with logging module"""
 
 import logging
 
@@ -11,9 +8,7 @@ from ytnoti import YouTubeNotifier, Video
 
 
 def main():
-    """
-    Main function
-    """
+    """Main function"""
 
     ngrok.set_auth_token("Your ngrok token here")
 
@@ -22,13 +17,14 @@ def main():
 
     @notifier.upload()
     async def listener(video: Video):
-        """
-        Listener called when a video is uploaded or edited for any channel
-        """
+        """Listener called when a video is uploaded or edited for any channel"""
 
         logger.info("New video from %s: %s", video.channel.name, video.title)
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
 
     notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
     notifier.run()

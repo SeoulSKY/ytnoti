@@ -1,6 +1,4 @@
-"""
-This module contains the setup code that runs before the tests in this package.
-"""
+"""This module contains the setup code that runs before the tests in this package."""
 
 import os
 import time
@@ -21,9 +19,7 @@ ngrok.set_auth_token(os.getenv("NGROK_TOKEN"))
 
 @pytest.fixture(scope="session")
 def notifier():
-    """
-    Setup/Teardown code that runs before and after the tests in this package.
-    """
+    """Setup/Teardown code that runs before and after the tests in this package."""
 
     noti = YouTubeNotifier()
     noti._config.password = ""

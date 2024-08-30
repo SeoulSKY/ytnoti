@@ -1,6 +1,4 @@
-"""
-This module contains type hints for the library.
-"""
+"""This module contains type hints for the library."""
 
 from typing import Callable, Coroutine, Any, TypeVar
 

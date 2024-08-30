@@ -1,6 +1,4 @@
-"""
-This example demonstrates how to use this library with discord.py
-"""
+"""This example demonstrates how to use this library with discord.py"""
 
 import logging
 
@@ -13,14 +11,10 @@ from ytnoti.models.video import Video
 
 
 class MyClient(discord.Client):
-    """
-    Custom discord client for methods overriding
-    """
+    """Custom discord client for methods overriding"""
 
     def __init__(self):
-        """
-        Create a new instance of the client
-        """
+        """Create a new instance of the client"""
 
         intents = discord.Intents.default()
         intents.message_content = True
@@ -32,27 +26,23 @@ class MyClient(discord.Client):
 
         @self._notifier.upload()
         async def listener(video: Video) -> None:
-            """
-            Listener called when a video is uploaded
-            """
+            """Listener called when a video is uploaded"""
 
             channels = self._listeners[video.channel.id]
             for channel in channels:
-                await channel.send(f"{video.channel.name} uploaded a [new video]({video.url})")
+                await channel.send(
+                    f"{video.channel.name} uploaded a [new video]" f"({video.url})"
+                )
 
     async def on_ready(self) -> None:
-        """
-        Called when the client is ready
-        """
+        """Called when the client is ready"""
 
         print("Logged on as", self.user)
 
         await self._notifier.serve()
 
     async def on_message(self, message: discord.Message) -> None:
-        """
-        Called when a message is received
-        """
+        """Called when a message is received"""
 
         if not message.content.startswith("!subscribe"):
             return
@@ -89,4 +79,8 @@ if __name__ == "__main__":
 
     client = MyClient()
 
-    client.run("Enter your token here", log_formatter=logging.Formatter(LOG_FORMAT), log_level=LOG_LEVEL)
+    client.run(
+        "Enter your token here",
+        log_formatter=logging.Formatter(LOG_FORMAT),
+        log_level=LOG_LEVEL,
+    )
