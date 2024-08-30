@@ -3,8 +3,8 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
-import httpx
 import pytest
+from fastapi.testclient import TestClient
 
 from tests import CALLBACK_URL, notifier  # noqa: F401
 from ytnoti import YouTubeNotifier
@@ -25,10 +25,12 @@ def test_subscribe(notifier: YouTubeNotifier) -> None:
 
 def test_get(notifier: YouTubeNotifier) -> None:
     """Test the get method of the YouTubeNotifier class."""
-    response = httpx.get(CALLBACK_URL)
+    client = TestClient(notifier._config.app)
+
+    response = client.get(CALLBACK_URL)
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
-    response = httpx.get(CALLBACK_URL, params={"hub.challenge": 1})
+    response = client.get(CALLBACK_URL, params={"hub.challenge": 1})
     assert response.status_code == HTTPStatus.OK
 
 
@@ -41,6 +43,8 @@ def test_parse_timestamp(notifier: YouTubeNotifier) -> None:
 
 def test_post(notifier: YouTubeNotifier) -> None:
     """Test the post method of the YouTubeNotifier class."""
+    client = TestClient(notifier._config.app)
+
     headers = {"Content-Type": "application/xml"}
 
     xmls = [
@@ -126,13 +130,13 @@ def test_post(notifier: YouTubeNotifier) -> None:
     ]
 
     for xml in xmls:
-        response = httpx.post(CALLBACK_URL, headers=headers, content=xml)
+        response = client.post(CALLBACK_URL, headers=headers, content=xml)
         assert response.status_code == HTTPStatus.NO_CONTENT
 
-    response = httpx.post(CALLBACK_URL, headers=headers, content="Invalid")
+    response = client.post(CALLBACK_URL, headers=headers, content="Invalid")
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
     notifier._config.password = "password"  # noqa: S105
-    response = httpx.post(CALLBACK_URL, headers=headers, content=xmls[0])
+    response = client.post(CALLBACK_URL, headers=headers, content=xmls[0])
     notifier._config.password = ""
     assert response.status_code == HTTPStatus.UNAUTHORIZED
