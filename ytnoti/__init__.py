@@ -57,14 +57,11 @@ class YouTubeNotifier(BaseYouTubeNotifier):
         self._logger = logging.getLogger(self.__class__.__name__)
         super().__init__(
             self._logger,
+            ServerMode.RUN,
             callback_url=callback_url,
             password=password,
             video_history=video_history,
         )
-
-    @staticmethod
-    def _get_server_mode() -> ServerMode:
-        return ServerMode.RUN
 
     def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
         """Subscribe to YouTube channels to receive push notifications.
@@ -164,14 +161,11 @@ class AsyncYouTubeNotifier(BaseYouTubeNotifier):
         self._logger = logging.getLogger(self.__class__.__name__)
         super().__init__(
             self._logger,
+            ServerMode.SERVE,
             callback_url=callback_url,
             password=password,
             video_history=video_history,
         )
-
-    @staticmethod
-    def _get_server_mode() -> ServerMode:
-        return ServerMode.SERVE
 
     async def subscribe(self, channel_ids: str | Iterable[str]) -> None:
         """Subscribe to YouTube channels to receive push notifications.

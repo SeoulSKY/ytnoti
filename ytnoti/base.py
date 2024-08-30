@@ -5,7 +5,6 @@ import hmac
 import logging
 import secrets
 import string
-from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from datetime import datetime
 from http import HTTPStatus
@@ -30,7 +29,7 @@ from ytnoti.models.video import Channel, Timestamp, Video
 from ytnoti.types import NotificationListener
 
 
-class BaseYouTubeNotifier(ABC):
+class BaseYouTubeNotifier:
     """An abstract class for all YouTubeNotifier classes."""
 
     _ALL_LISTENER_KEY = "_all"
@@ -38,6 +37,7 @@ class BaseYouTubeNotifier(ABC):
     def __init__(
         self,
         logger: logging.Logger,
+        server_mode: ServerMode,
         *,
         callback_url: str | None = None,
         password: str | None = None,
@@ -57,6 +57,7 @@ class BaseYouTubeNotifier(ABC):
         """
         self.__logger = logger
         self._config = YouTubeNotifierConfig(
+            server_mode,
             callback_url,
             "",
             -1,
@@ -71,14 +72,6 @@ class BaseYouTubeNotifier(ABC):
         self._subscribed_ids: set[str] = set()
         self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
-
-    @staticmethod
-    @abstractmethod
-    def _get_server_mode() -> ServerMode:
-        """Get the server mode to run the server in.
-
-        :return: The server mode.
-        """
 
     @property
     def callback_url(self) -> str | None:
@@ -483,7 +476,7 @@ class BaseYouTubeNotifier(ABC):
                     app, self._config.host, self._config.port, log_level=logging.WARNING
                 )
             )
-            if self._get_server_mode() == ServerMode.RUN:
+            if self._config.server_mode == ServerMode.RUN:
                 Thread(target=running_server.run).start()
             else:
                 _ = asyncio.create_task(running_server.serve())  # noqa: RUF006
