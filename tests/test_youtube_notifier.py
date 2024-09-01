@@ -5,6 +5,7 @@ from http import HTTPStatus
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from tests import CALLBACK_URL, get_video, notifier  # noqa: F401
 from ytnoti import Video, YouTubeNotifier
@@ -213,6 +214,15 @@ def test_get_server(notifier: YouTubeNotifier) -> None:
     with pytest.raises(ValueError):
         notifier._get_server(host=host, port=port, app=app)
 
+@pytest.mark.asyncio
+async def test_verify_channel_id() -> None:
+    """Test verifying channel ID."""
+    notifier = YouTubeNotifier()
+    async with AsyncClient() as client:
+        for channel_id in channel_ids:
+            assert await notifier._verify_channel_id(channel_id, client=client)
+
+        assert not await notifier._verify_channel_id("invalid", client=client)
 
 def test_get(notifier: YouTubeNotifier) -> None:
     """Test the get method of the YouTubeNotifier class."""

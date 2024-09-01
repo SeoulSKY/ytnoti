@@ -422,6 +422,22 @@ class AsyncYouTubeNotifier:
 
         return response.status_code == HTTPStatus.OK.value
 
+    @staticmethod
+    async def _verify_channel_id(channel_id: str, *, client: AsyncClient) -> bool:
+        """Verify the channel ID by sending a HEAD request to the YouTube channel.
+
+        :param channel_id: The channel ID to verify.
+        :param client: The asynchronous HTTP client to use for the request.
+        :return: True if the channel ID is valid, False otherwise.
+        :raises HTTPError: If failed to verify the channel ID due to an HTTP error.
+        """
+        response = await client.head(
+            f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+        )
+
+        return response.status_code == HTTPStatus.OK.value
+
+
     async def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
         """Subscribe to YouTube channels to receive push notifications.
         This is lazy and will subscribe when the notifier is ready.
@@ -438,12 +454,7 @@ class AsyncYouTubeNotifier:
 
         async with AsyncClient() as client:
             for channel_id in channel_ids:
-                response = await client.head(
-                    f"https://www.youtube.com/channel/{channel_id}"
-                )
-
-                if response.status_code != HTTPStatus.OK.value:
-                    raise ValueError(f"Invalid channel ID: {channel_id}")
+                await self._verify_channel_id(channel_id, client=client)
 
         if not self.is_ready:
             self._subscribed_ids.update(channel_ids)
