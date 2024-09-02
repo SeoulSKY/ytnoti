@@ -13,8 +13,7 @@ It's useful for development purposes.
 What are the differences between YoutubeNotifier and AsyncYoutubeNotifier?
 --------------------------------------------------------------------------
 
-Their usage is very similar, except that the AsyncYouTubeNotifier has ``serve()`` method instead of ``run()`` method.
-Following are the differences between them:
+Their usage is very similar, except for the followings:
 
 YouTubeNotifier
 ~~~~~~~~~~~~~~~
@@ -25,8 +24,8 @@ YouTubeNotifier
 AsyncYouTubeNotifier
 ~~~~~~~~~~~~~~~~~~~~
 * Public methods are asynchronous.
-* ``serve()`` method can only be run in the main thread.
-* Serves in the existing asyncio event loop.
+* ``run()`` method can only be run in the main thread.
+* Runs in the existing asyncio event loop.
 
 To see the difference in usage between them,
 see the `sync.py <https://github.com/SeoulSKY/ytnoti/tree/main/examples/basic/sync.py>`_ and
