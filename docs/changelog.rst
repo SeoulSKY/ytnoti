@@ -5,7 +5,7 @@ v2.1.0
 ------
 
 * From now on, ``YouTubeNotifier`` extends ``AsyncYouTubeNotifier`` and ``AsyncYouTubeNotifier`` extends ``object``. ``BaseYouTubeNotifier`` was removed.
-* Added ``(Async)YouTubeNotifier.run_in_background()``. It works like the run method but immediately returns when the notifier is running.
+* Added ``(Async)YouTubeNotifier.run_in_background()``. It works like the ``run()`` method but immediately returns when the notifier starts running.
 * Added ``(Async) YouTubeNotifier.unsubscribe()``. It unsubscribes the subscribed channel IDs
 * From now on, ``(Async)YouTubeNotifier.subscribe()`` immediately raises ``ValueError`` when the given channel IDs are invalid. It didn't raise an error in the past until the notifier started running.
 * Improved the speed of verifying channel IDs
@@ -21,6 +21,7 @@ The following decorators are deprecated and will be removed in version ``3.0.0``
 * ``(Async)YouTubeNotifier.listener()`` -> use either ``any``, ``upload`` or ``edit``
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.0.1...v2.1.0
+
 v2.0.1
 ------
 
