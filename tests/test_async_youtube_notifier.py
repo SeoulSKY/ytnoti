@@ -1,3 +1,6 @@
+"""Contains the tests for the class AsyncYouTubeNotifier."""
+
+
 import asyncio
 
 import pytest

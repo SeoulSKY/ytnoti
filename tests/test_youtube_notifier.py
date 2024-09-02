@@ -1,4 +1,4 @@
-"""Contains the tests for the YouTube notifier class."""
+"""Contains the tests for the class YouTubeNotifier."""
 from datetime import UTC, datetime
 from http import HTTPStatus
 

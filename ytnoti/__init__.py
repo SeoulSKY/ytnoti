@@ -37,7 +37,6 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
 from httpx import AsyncClient
 from pyngrok import ngrok
-from pyngrok.exception import PyngrokNgrokHTTPError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
