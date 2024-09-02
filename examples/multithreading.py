@@ -27,7 +27,7 @@ def main() -> None:
     # Simulate adding listener and subscriber after some time
     seconds = 10
     for i in range(seconds):
-        print("Waiting for adding another listener in %d seconds", seconds - i)
+        print(f"Waiting for adding another listener in {seconds - i} seconds")
         time.sleep(1)
 
     print("Adding listener 2 and subscribing to another channel")
@@ -43,7 +43,7 @@ def main() -> None:
     try:
         thread.join()
     except KeyboardInterrupt:
-        # Gracefully stop notifier to unsubscribe the channels properly
+        # Gracefully stop notifier
         notifier.stop()
 
 

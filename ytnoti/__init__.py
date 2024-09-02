@@ -21,7 +21,10 @@ import logging
 import secrets
 import signal
 import string
+import time
+from asyncio import Task
 from collections.abc import Callable, Coroutine, Iterable
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from http import HTTPStatus
 from pyexpat import ExpatError
@@ -34,6 +37,7 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
 from httpx import AsyncClient
 from pyngrok import ngrok
+from pyngrok.exception import PyngrokNgrokHTTPError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
@@ -110,6 +114,11 @@ class AsyncYouTubeNotifier:
     ) -> Callable[[NotificationListener], NotificationListener]:
         """Decorate the function to add a listener for push notifications.
 
+        .. deprecated:: 2.1.0
+            This method has been deprecated in favor of the more specific decorators:
+            :meth:`upload`, :meth:`edit`, and :meth:`any`.
+            It will be removed in version 3.0.0.
+
         :param kind: The kind of notification to listen for.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
@@ -166,6 +175,12 @@ class AsyncYouTubeNotifier:
         channel_ids: str | Iterable[str] | None = None,
     ) -> Self:
         """Add a listener for push notifications.
+
+        .. deprecated:: 2.1.0
+            This method has been deprecated in favor of the more specific decorators:
+            :meth:`add_upload_listener`, :meth:`add_edit_listener`,
+            and :meth:`add_any_listener`.
+            It will be removed in version 3.0.0.
 
         :param func: The listener function to add.
         :param kind: The kind of notification to listen for.
@@ -328,34 +343,63 @@ class AsyncYouTubeNotifier:
         self._config.app.include_router(self._get_router())
 
         async def on_ready() -> None:
-            while not await self._is_listening():  # noqa: ASYNC110
+            while True:
                 await asyncio.sleep(0.1)
+
+                try:
+                    async with AsyncClient() as client:
+                        response = await client.head(
+                            self._config.callback_url, params={"hub.challenge": "1"}
+                        )
+                        if response.status_code == HTTPStatus.OK:
+                            break
+                except ConnectionError:   # pragma: no cover
+                    continue
 
             self._server = server
 
             await self._register(self._subscribed_ids)
 
-        async def repeat_subscribe(interval: float) -> None:
-            while True:
-                await asyncio.sleep(interval)
-                await self._register(self._subscribed_ids)
+        async def task() -> None:  # pragma: no cover
+            await self._register(self._subscribed_ids)
 
         self._config.app.add_event_handler(
             "startup", lambda: asyncio.create_task(on_ready())
         )
         self._config.app.add_event_handler(
-            "startup", lambda: asyncio.create_task(repeat_subscribe(60 * 60 * 24))
+            "startup", lambda: asyncio.create_task(self._repeat_task(
+                task, 60 * 60 * 24)
+            )
         )
 
         server = Server(self._get_server_config(**configs))
         return server  # noqa: RET504
 
+    @staticmethod
+    async def _repeat_task(task: Callable[[], Coroutine[Any, Any, Any]],
+                           interval: float,
+                           predicate: Callable[[], bool] | None = None) -> None:
+        """Repeatedly run a task.
+
+        :param task: The coroutine to repeat
+        :param interval: The interval in seconds to repeat the task
+        :param predicate: An optional predicate function
+            that returns True to continue
+        """
+        while not predicate or predicate():
+            await asyncio.sleep(interval)
+            await task()
+
     async def serve(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Alias for run() method.
 
+        .. deprecated:: 2.1.0
+            This method is deprecated and will be removed in version 3.0.0.
+            Use :meth:`run` instead
+
         :param kwargs: Arguments to pass to the run() method.
         """
-        await self.run(**kwargs)
+        await self.run(**kwargs)  # pragma: no cover
 
     async def run(
         self,
@@ -367,7 +411,7 @@ class AsyncYouTubeNotifier:
         **configs: Any,  # noqa: ANN401
     ) -> None:
         """Start the FastAPI server to receive push notifications in an existing event
-        loop.
+            loop and wait until the server stops.
 
         :param host: The host to run the FastAPI server on.
         :param port: The port to run the FastAPI server on.
@@ -377,25 +421,17 @@ class AsyncYouTubeNotifier:
         :param configs: Additional arguments to pass to the Config class of uvicorn.
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
-        :raises RuntimeError: If the method is not called from a running event loop.
         """
-        try:
-            _ = asyncio.get_running_loop()
-        except RuntimeError as ex:
-            raise RuntimeError("run() must be called from a running event loop") \
-                from ex
-
         server = self._get_server(
             host=host, port=port, app=app, log_level=log_level, **configs
         )
 
         old_signal_handler = signal.getsignal(signal.SIGINT)
 
-        async def signal_handler() -> None:
-            await self._clean_up(running_server=None)
+        async def signal_handler() -> None:  # pragma: no cover
+            await self._on_exit()
 
             signal.signal(signal.SIGINT, old_signal_handler)
-            signal.raise_signal(signal.SIGINT)
 
         signal.signal(
             signal.SIGINT, lambda _sig, _frame: asyncio.create_task(signal_handler())
@@ -403,39 +439,50 @@ class AsyncYouTubeNotifier:
 
         try:
             await server.serve()
-        except KeyboardInterrupt:
-            await self.stop()
+        except KeyboardInterrupt:  # pragma: no cover
+            await self._on_exit()
 
+    @asynccontextmanager
+    async def run_in_background(self,
+                      *,
+                      host: str = "0.0.0.0",  # noqa: S104
+                      port: int = 8000,
+                      app: FastAPI = None,
+                      log_level: int = logging.WARNING,
+                      **configs: Any) -> Task:  # noqa: ANN401
+        """Run the FastAPI server in an existing event loop and return immediately.
 
-    async def _is_listening(self) -> bool:
-        """Check if the server is listening for push notifications.
-
-        :return: True if the server is listening, False otherwise.
+        :param host: The host IP address to bind the server.
+        :param port: The port number to bind the server.
+        :param app: The FastAPI application to use for serving the server.
+        :param log_level: The log level to use for the server.
+        :param configs: Additional configurations to pass to the server.
         """
+        task = asyncio.create_task(
+            self.run(host=host, port=port, app=app, log_level=log_level, **configs)
+        )
         try:
-            async with AsyncClient() as client:
-                response = await client.head(
-                    self._config.callback_url, params={"hub.challenge": "1"}
-                )
-        except ConnectionError:
-            return False
-
-        return response.status_code == HTTPStatus.OK.value
+            while not self.is_ready:  # noqa: ASYNC110
+                await asyncio.sleep(0.1)
+            yield task
+        finally:
+            await self._on_exit()
+            await task
 
     @staticmethod
-    async def _verify_channel_id(channel_id: str, *, client: AsyncClient) -> bool:
-        """Verify the channel ID by sending a HEAD request to the YouTube channel.
+    async def _verify_channel_ids(channel_ids: Iterable[str]) -> None:
+        """Verify if the given channel IDs are valid.
 
-        :param channel_id: The channel ID to verify.
-        :param client: The asynchronous HTTP client to use for the request.
-        :return: True if the channel ID is valid, False otherwise.
-        :raises HTTPError: If failed to verify the channel ID due to an HTTP error.
+        :param channel_ids: The channel IDs
+        :raises ValueError: If the channel ID is invalid.
         """
-        response = await client.head(
-            f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-        )
-
-        return response.status_code == HTTPStatus.OK.value
+        async with AsyncClient() as client:
+            for channel_id in channel_ids:
+                response = await client.head(
+                    f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+                )
+                if response.status_code != HTTPStatus.OK.value:
+                    raise ValueError(f"Invalid channel ID: {channel_id}")
 
 
     async def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
@@ -452,9 +499,7 @@ class AsyncYouTubeNotifier:
         if isinstance(channel_ids, str):
             channel_ids = [channel_ids]
 
-        async with AsyncClient() as client:
-            for channel_id in channel_ids:
-                await self._verify_channel_id(channel_id, client=client)
+        await self._verify_channel_ids(channel_ids)
 
         if not self.is_ready:
             self._subscribed_ids.update(channel_ids)
@@ -464,6 +509,38 @@ class AsyncYouTubeNotifier:
         await self._register(not_subscribed)
 
         self._subscribed_ids.update(not_subscribed)
+
+        return self
+
+    async def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:
+        """Unsubscribe from YouTube channels to stop receiving push notifications.
+        This is lazy and will unsubscribe when the notifier is ready.
+        If the notifier is already ready, it will unsubscribe immediately.
+
+        :param channel_ids: The channel ID(s) to unsubscribe from.
+        :return: The current instance for method chaining.
+        :raises ValueError: If the channel ID is invalid.
+        :raises HTTPError: If failed to verify the channel ID or failed to unsubscribe
+            due to an HTTP error.
+        """
+        if isinstance(channel_ids, str):
+            channel_ids = [channel_ids]
+
+        await self._verify_channel_ids(channel_ids)
+
+        unsubscribe_ids = self._subscribed_ids.intersection(channel_ids)
+
+        no_server = self.is_ready
+
+        if no_server:
+            self.run_in_background(host=self._config.host, port=self._config.port)
+
+        await self._register(unsubscribe_ids, mode="unsubscribe")
+
+        if no_server:
+            self.stop()
+
+        self._subscribed_ids.difference_update(unsubscribe_ids)
 
         return self
 
@@ -502,10 +579,10 @@ class AsyncYouTubeNotifier:
                     headers={"Content-type": "application/x-www-form-urlencoded"},
                 )
 
-            if response.status_code == HTTPStatus.CONFLICT.value:
-                if not await self._is_listening():
+            if response.status_code == HTTPStatus.CONFLICT.value:  # pragma: no cover
+                if not self.is_ready:
                     raise ConnectionError(
-                        f"Cannot {mode} while the server is not listening"
+                        f"Cannot {mode} while the server is not ready"
                     )
 
                 raise HTTPError(
@@ -515,62 +592,32 @@ class AsyncYouTubeNotifier:
                     response.status_code,
                 )
 
-            if response.status_code != HTTPStatus.NO_CONTENT.value:
+            if response.status_code != HTTPStatus.NO_CONTENT.value:  # pragma: no cover
                 raise HTTPError(
                     f"Failed to {mode} channel: {channel_id}", response.status_code
                 )
 
             self._logger.info("Successfully %sd channel: %s", mode, channel_id)
 
-    async def stop(self) -> None:
-        """Request to gracefully stop the notifier.
+    def stop(self) -> None:
+        """Gracefully stop the FastAPI server and the notifier.
         If the notifier is not running, this method will do nothing.
         """
         if not self.is_ready:
             return
 
-        await self._clean_up(running_server=self._server)
+        self._server.should_exit = True
         self._server = None
 
-    async def _clean_up(self, *, running_server: Server | None) -> None:
-        """Clean up the notifier.
-
-        :param running_server: The running server instance, or None if the server is
-            not running.
-        """
-        self._logger.debug("Cleaning up the notifier")
-
-        # Ngrok is already stopped at this point, so we can't unsubscribe if we are
-        # using ngrok.
-        # It might not be matter though because ngrok generates unique URL
-        # every time, and the old URL will be invalid.
         if self._config.using_ngrok:
-            return
+            ngrok.disconnect(self._config.callback_url)
 
-        app = FastAPI()
-        app.include_router(self._get_router())
+    async def _on_exit(self) -> None:
+        """Perform a task after the notifier is stopped."""
+        if not self._config.using_ngrok:
+            await self.unsubscribe(self._subscribed_ids)
 
-        if running_server is None:
-            self._logger.debug(
-                "Temporarily running the server to unsubscribe the YouTube channels"
-            )
-            # Run the server again to unsubscribe
-            running_server = Server(
-                Config(
-                    app, self._config.host, self._config.port, log_level=logging.WARNING
-                )
-            )
-            if self._config.server_mode == ServerMode.RUN:
-                Thread(target=running_server.run).start()
-            else:
-                _ = asyncio.create_task(running_server.serve())  # noqa: RUF006
-
-        while not await self._is_listening():  # noqa: ASYNC110
-            await asyncio.sleep(0.1)
-
-        await self._register(self._subscribed_ids, mode="unsubscribe")
-
-        await running_server.shutdown()
+        self.stop()
 
     @staticmethod
     async def _get(request: Request) -> Response:
@@ -671,7 +718,6 @@ class AsyncYouTubeNotifier:
         return hmac.compare_digest(hash_obj.hexdigest(), value)
 
 
-
 class YouTubeNotifier(AsyncYouTubeNotifier):
     """A class that encapsulates the functionality for subscribing to YouTube
     channels and receiving push notifications.
@@ -707,34 +753,80 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
     def subscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
         return self._run_coroutine(super().subscribe(channel_ids))
 
-    def run(  # noqa: D102
-        self,
+    def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
+        return self._run_coroutine(super().unsubscribe(channel_ids))
+
+    def run(self,
         *,
         host: str = "0.0.0.0",  # noqa: S104
         port: int = 8000,
         app: FastAPI = None,
         log_level: int = logging.WARNING,
-        **configs: Any,  # noqa: ANN401
-    ) -> None:
+        **configs: Any) -> None:  # noqa: ANN401
+        """Start the FastAPI server to receive push notifications in the
+            current thread and wait until the server stops.
+
+        :param host: The host to run the FastAPI server on.
+        :param port: The port to run the FastAPI server on.
+        :param log_level: The log level to use for the uvicorn server.
+        :param app: The FastAPI app instance to use. If not provided, a new instance
+            will be created.
+        :param configs: Additional arguments to pass to the Config class of uvicorn.
+        :raises ValueError: If the given app instance has a route that conflicts with
+            the notifier's routes.
+        """
         server = self._get_server(
             host=host, port=port, app=app, log_level=log_level, **configs
         )
 
         try:
             server.run()
-        except KeyboardInterrupt:
-            # KeyboardInterrupt occurs if run() is running in main thread.
-            # In this case, the server automatically stops, so we indicate here that
-            # the server is gone
-            self._run_coroutine(self._clean_up(running_server=None))
-        else:
-            self.stop()
+        except KeyboardInterrupt:  # pragma: no cover
+            pass
+        finally:
+            self._on_exit()
 
-    def stop(self) -> None:  # noqa: D102
-        if self._server is None:
-            return
+    @contextmanager
+    def run_in_background(self,
+                      *,
+                      host: str = "0.0.0.0",  # noqa: S104
+                      port: int = 8000,
+                      app: FastAPI = None,
+                      log_level: int = logging.WARNING,
+                      **configs: Any) -> Thread:  # noqa: ANN401
+        """Start the FastAPI server to receive push notifications in the separate
+            thread and return immediately.
 
-        self._run_coroutine(super().stop())
+        :param host: The host to run the FastAPI server on.
+        :param port: The port to run the FastAPI server on.
+        :param log_level: The log level to use for the uvicorn server.
+        :param app: The FastAPI app instance to use. If not provided, a new instance
+            will be created.
+        :param configs: Additional arguments to pass to the Config class of uvicorn.
+        :return: A thread that runs the FastAPI server in the background.
+        :raises ValueError: If the given app instance has a route that conflicts with
+            the notifier's routes.
+        """
+        configs["host"] = host
+        configs["port"] = port
+        configs["app"] = app
+        configs["log_level"] = log_level
+
+        thread = Thread(target=self.run, kwargs=configs, daemon=True)
+        thread.start()
+        try:
+            while not self.is_ready:
+                time.sleep(0.1)
+            yield thread
+        finally:
+            self._on_exit()
+            thread.join()
+
+    def _on_exit(self) -> None:
+        if not self._config.using_ngrok:
+            self.unsubscribe(self._subscribed_ids)
+
+        self.stop()
 
     @staticmethod
     def _run_coroutine(coro: Coroutine[Any, Any, T]) -> T:
@@ -746,6 +838,6 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-
-        return loop.run_until_complete(coro)
+            return asyncio.run(coro)
+        else:
+            return loop.run_until_complete(coro)

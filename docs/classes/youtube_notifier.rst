@@ -9,14 +9,13 @@ YouTubeNotifier
 
     add_any_listener
     add_edit_listener
-    add_listener
     add_upload_listener
     any
     callback_url
     edit
     is_ready
-    listener
     run
+    run_in_background
     stop
     subscribe
     upload

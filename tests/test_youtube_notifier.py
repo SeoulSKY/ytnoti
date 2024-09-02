@@ -5,9 +5,8 @@ from http import HTTPStatus
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
 
-from tests import CALLBACK_URL, get_video, notifier  # noqa: F401
+from tests import CALLBACK_URL
 from ytnoti import Video, YouTubeNotifier
 
 channel_ids = [
@@ -98,6 +97,15 @@ xmls = [
     """,
 ]
 
+@pytest.fixture(scope="session")
+def notifier() -> YouTubeNotifier:
+    """Setup/Teardown code that runs before and after the tests in this package."""
+    noti = YouTubeNotifier()
+    noti._config.password = ""
+
+    with noti.run_in_background():
+        yield noti
+
 
 def test_callback_url(notifier: YouTubeNotifier) -> None:
     """Test the callback URL configuration."""
@@ -115,6 +123,15 @@ def test_subscribe(notifier: YouTubeNotifier) -> None:
     notifier.subscribe(channel_ids)
     assert len(notifier._subscribed_ids) == len(channel_ids)
 
+
+def test_unsubscribe(notifier: YouTubeNotifier) -> None:
+    """Test the unsubscribe method of the YouTubeNotifier class."""
+    notifier.unsubscribe(channel_ids)
+
+    with pytest.raises(ValueError):
+        notifier.unsubscribe("Invalid")
+
+    assert len(notifier._subscribed_ids) == 0
 
 def test_listener(notifier: YouTubeNotifier) -> None:
     """Test the upload decorator of the YouTubeNotifier class."""
@@ -207,6 +224,8 @@ def test_get_server(notifier: YouTubeNotifier) -> None:
     port = 8000
     app = FastAPI()
 
+    using_ngrok = notifier._config.using_ngrok
+    notifier._config.using_ngrok = False
     notifier._get_server(host=host, port=port, app=app)
 
     app.get("/")(lambda: None)
@@ -214,15 +233,16 @@ def test_get_server(notifier: YouTubeNotifier) -> None:
     with pytest.raises(ValueError):
         notifier._get_server(host=host, port=port, app=app)
 
-@pytest.mark.asyncio
-async def test_verify_channel_id() -> None:
-    """Test verifying channel ID."""
-    notifier = YouTubeNotifier()
-    async with AsyncClient() as client:
-        for channel_id in channel_ids:
-            assert await notifier._verify_channel_id(channel_id, client=client)
+    notifier._config.using_ngrok = using_ngrok
 
-        assert not await notifier._verify_channel_id("invalid", client=client)
+@pytest.mark.asyncio
+async def test_verify_channel_ids() -> None:
+    """Test verifying channel IDs."""
+    notifier = YouTubeNotifier()
+    await notifier._verify_channel_ids(channel_ids)
+
+    with pytest.raises(ValueError):
+        await notifier._verify_channel_ids(["Invalid"])
 
 def test_get(notifier: YouTubeNotifier) -> None:
     """Test the get method of the YouTubeNotifier class."""
@@ -257,6 +277,7 @@ def test_post(notifier: YouTubeNotifier) -> None:
     response = client.post(CALLBACK_URL, headers=headers, content="<feed/>")
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
+    password = notifier._config.password
     notifier._config.password = "password"  # noqa: S105
     response = client.post(CALLBACK_URL, headers=headers, content=xmls[0])
     assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -266,4 +287,23 @@ def test_post(notifier: YouTubeNotifier) -> None:
     }, content=xmls[0])
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    notifier._config.password = ""
+    notifier._config.password = password
+
+
+@pytest.mark.asyncio
+async def test_repeat_task() -> None:
+    """Test repeat method of the YouTubeNotifier class."""
+    notifier = YouTubeNotifier()
+
+    timeout = 3
+    started = datetime.now(UTC)
+
+    called = 0
+    async def task() -> None:
+        nonlocal called
+        called += 1
+
+    await notifier._repeat_task(task, 1, lambda: (datetime.now(UTC) - started)
+                                .total_seconds() < timeout)
+
+    assert timeout - 1 <= called <= timeout

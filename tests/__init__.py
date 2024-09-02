@@ -1,39 +1,17 @@
 """Contains fixtures and utility functions."""
 
 import os
-import time
 from datetime import UTC, datetime
-from threading import Thread
 
-import pytest
 from dotenv import load_dotenv
 from pyngrok import ngrok
 
-from ytnoti import Channel, Timestamp, Video, YouTubeNotifier
+from ytnoti import Channel, Timestamp, Video
 
 CALLBACK_URL = "http://localhost:8000"
 
 load_dotenv()
 ngrok.set_auth_token(os.getenv("NGROK_TOKEN"))
-
-
-@pytest.fixture(scope="session")
-def notifier() -> YouTubeNotifier:
-    """Setup/Teardown code that runs before and after the tests in this package."""
-    noti = YouTubeNotifier()
-    noti._config.password = ""
-    thread = Thread(target=noti.run, name="notifier", daemon=True)
-    thread.start()
-
-    while True:
-        if noti.is_ready:
-            break
-
-        time.sleep(0.1)
-
-    yield noti
-
-    noti.stop()
 
 
 def get_channel() -> Channel:
