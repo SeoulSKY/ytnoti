@@ -22,6 +22,7 @@ import secrets
 import signal
 import string
 import time
+import warnings
 from asyncio import Task
 from collections.abc import Callable, Coroutine, Iterable
 from contextlib import asynccontextmanager, contextmanager
@@ -108,7 +109,32 @@ class AsyncYouTubeNotifier:
         """
         return self._server is not None
 
-    def listener(
+    def listener(  # pragma: no cover
+        self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
+    ) -> Callable[[NotificationListener], NotificationListener]:
+        """Decorate the function to add a listener for push notifications.
+
+        .. deprecated:: 2.1.0
+            This method has been deprecated in favor of the more specific decorators:
+            :meth:`upload`, :meth:`edit`, and :meth:`any`.
+            It will be removed in version 3.0.0.
+
+        :param kind: The kind of notification to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The decorator function.
+        :raises ValueError: If the channel ID is '_all'.
+        """
+        warnings.warn(
+            "listener() is deprecated since version 2.1.0 and will be removed "
+            "in version 3.0.0. Use upload(), edit(), or any() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
+        return self._listener(kind=kind, channel_ids=channel_ids)
+
+    def _listener(
         self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
     ) -> Callable[[NotificationListener], NotificationListener]:
         """Decorate the function to add a listener for push notifications.
@@ -125,7 +151,7 @@ class AsyncYouTubeNotifier:
         :raises ValueError: If the channel ID is '_all'.
         """
         def decorator(func: NotificationListener) -> NotificationListener:
-            self.add_listener(func, kind, channel_ids)
+            self._add_listener(func, kind, channel_ids)
 
             return func
 
@@ -141,7 +167,7 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-        return self.listener(kind=NotificationKind.ANY, channel_ids=channel_ids)
+        return self._listener(kind=NotificationKind.ANY, channel_ids=channel_ids)
 
     def upload(
         self, *, channel_ids: str | Iterable[str] | None = None
@@ -153,7 +179,7 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-        return self.listener(kind=NotificationKind.UPLOAD, channel_ids=channel_ids)
+        return self._listener(kind=NotificationKind.UPLOAD, channel_ids=channel_ids)
 
     def edit(
         self, *, channel_ids: str | Iterable[str] | None = None
@@ -165,9 +191,40 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-        return self.listener(kind=NotificationKind.EDIT, channel_ids=channel_ids)
+        return self._listener(kind=NotificationKind.EDIT, channel_ids=channel_ids)
 
     def add_listener(
+        self,
+        func: NotificationListener,
+        kind: NotificationKind,
+        channel_ids: str | Iterable[str] | None = None,
+    ) -> Self:  # pragma: no cover
+        """Add a listener for push notifications.
+
+        .. deprecated:: 2.1.0
+            This method has been deprecated in favor of the more specific decorators:
+            :meth:`add_upload_listener`, :meth:`add_edit_listener`,
+            and :meth:`add_any_listener`.
+            It will be removed in version 3.0.0.
+
+        :param func: The listener function to add.
+        :param kind: The kind of notification to listen for.
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The YouTubeNotifier instance to allow for method chaining.
+        :raises ValueError: If the channel ID is '_all'.
+        """
+        warnings.warn(
+            "add_listener() is deprecated since version 2.1.0 and will be removed "
+            "in version 3.0.0. Use add_upload_listener(), add_edit_listener(), "
+            "or add_any_listener() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
+        return self._add_listener(func, kind, channel_ids)
+
+    def _add_listener(
         self,
         func: NotificationListener,
         kind: NotificationKind,
@@ -224,7 +281,7 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self.add_listener(func, NotificationKind.ANY, channel_ids)
+        return self._add_listener(func, NotificationKind.ANY, channel_ids)
 
     def add_upload_listener(
         self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
@@ -237,7 +294,7 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self.add_listener(func, NotificationKind.UPLOAD, channel_ids)
+        return self._add_listener(func, NotificationKind.UPLOAD, channel_ids)
 
     def add_edit_listener(
         self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
@@ -250,7 +307,7 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self.add_listener(func, NotificationKind.EDIT, channel_ids)
+        return self._add_listener(func, NotificationKind.EDIT, channel_ids)
 
     async def _get_kind(self, video: Video) -> NotificationKind:
         """Get the kind of notification based on the video.
@@ -389,16 +446,37 @@ class AsyncYouTubeNotifier:
             await asyncio.sleep(interval)
             await task()
 
-    async def serve(self, **kwargs: Any) -> None:  # noqa: ANN401
-        """Alias for run() method.
+    async def serve(
+            self,
+            *,
+            host: str = "0.0.0.0",  # noqa: S104
+            port: int = 8000,
+            log_level: int = logging.WARNING,
+            app: FastAPI = None,
+            **configs: Any,  # noqa: ANN401
+    ) -> None:  # pragma: no cover
+        """Start the FastAPI server to receive push notifications in an existing event
+            loop and wait until the server stops.
 
         .. deprecated:: 2.1.0
-            This method is deprecated and will be removed in version 3.0.0.
-            Use :meth:`run` instead
+        Use :meth:`run` instead.
 
-        :param kwargs: Arguments to pass to the run() method.
+        :param host: The host to run the FastAPI server on.
+        :param port: The port to run the FastAPI server on.
+        :param log_level: The log level to use for the uvicorn server.
+        :param app: The FastAPI app instance to use. If not provided, a new instance
+            will be created.
+        :param configs: Additional arguments to pass to the Config class of uvicorn.
+        :raises ValueError: If the given app instance has a route that conflicts with
+            the notifier's routes.
         """
-        await self.run(**kwargs)  # pragma: no cover
+        warnings.warn(
+            "serve() is deprecated and will be removed in "
+            "version 3.0.0. Use run() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        await self.run(host=host, port=port, log_level=log_level, app=app, **configs)
 
     async def run(
         self,
