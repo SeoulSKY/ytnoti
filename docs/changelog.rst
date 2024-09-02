@@ -10,6 +10,9 @@ v2.1.0
 * From now on, (Async)YouTubeNotifier.subscribe() immediately raises ValueError when the given channel IDs are invalid. It didn't raise an error in the past until the notifier started running.
 * Improved the speed of verifying channel IDs
 
+Deprecations
+~~~~~~~~~
+
 The following methods are deprecated and will be removed in version 3.0.0
 * AsyncYouTubeNotifier.serve() -> use AsyncYouTubeNotifier.run()
 * (Async)YouTubeNotifier.add_listener() -> use either add_any_listener(), add_upload_listener(), or add_edit_listener()
