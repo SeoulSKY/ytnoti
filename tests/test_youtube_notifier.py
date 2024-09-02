@@ -126,10 +126,14 @@ def test_subscribe(notifier: YouTubeNotifier) -> None:
 
 def test_unsubscribe(notifier: YouTubeNotifier) -> None:
     """Test the unsubscribe method of the YouTubeNotifier class."""
+    notifier.subscribe(channel_ids)
     notifier.unsubscribe(channel_ids)
 
     with pytest.raises(ValueError):
         notifier.unsubscribe("Invalid")
+
+    with pytest.raises(ValueError):
+        notifier.unsubscribe(channel_ids)
 
     assert len(notifier._subscribed_ids) == 0
 

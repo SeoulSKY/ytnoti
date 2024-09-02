@@ -1,4 +1,4 @@
-"""THe Following is an example of how to use this library with multithreading."""
+"""The following is an example of how to use this library with multithreading."""
 
 import time
 from threading import Thread

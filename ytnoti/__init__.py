@@ -25,7 +25,7 @@ import time
 import warnings
 from asyncio import Task
 from collections.abc import Callable, Coroutine, Iterable
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from datetime import datetime
 from http import HTTPStatus
 from pyexpat import ExpatError
@@ -38,6 +38,7 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
 from httpx import AsyncClient
 from pyngrok import ngrok
+from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
@@ -591,19 +592,17 @@ class AsyncYouTubeNotifier:
 
     async def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:
         """Unsubscribe from YouTube channels to stop receiving push notifications.
-        This is lazy and will unsubscribe when the notifier is ready.
-        If the notifier is already ready, it will unsubscribe immediately.
 
         :param channel_ids: The channel ID(s) to unsubscribe from.
         :return: The current instance for method chaining.
-        :raises ValueError: If the channel ID is invalid.
-        :raises HTTPError: If failed to verify the channel ID or failed to unsubscribe
-            due to an HTTP error.
+        :raises ValueError: If the channel_ids includes ids that are not subscribed
         """
         if isinstance(channel_ids, str):
             channel_ids = [channel_ids]
 
-        await self._verify_channel_ids(channel_ids)
+        if not self._subscribed_ids.issuperset(channel_ids):
+            raise ValueError(f"No such subscribed channel IDs: "
+                             f"{self._subscribed_ids.difference(channel_ids)}")
 
         unsubscribe_ids = self._subscribed_ids.intersection(channel_ids)
 
@@ -687,7 +686,8 @@ class AsyncYouTubeNotifier:
         self._server = None
 
         if self._config.using_ngrok:
-            ngrok.disconnect(self._config.callback_url)
+            with suppress(PyngrokNgrokURLError):
+                ngrok.disconnect(self._config.callback_url)
 
     async def _on_exit(self) -> None:
         """Perform a task after the notifier is stopped."""

@@ -21,7 +21,7 @@ async def main() -> None:
         print(f"New video from {video.channel.name}: {video.title}")
 
     await notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
-    await notifier.serve()
+    await notifier.run()
 
 
 if __name__ == "__main__":
