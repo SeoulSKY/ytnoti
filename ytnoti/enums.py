@@ -1,6 +1,6 @@
 """Defines Enum classes used in the package."""
 
-__all__ = ["NotificationKind", "ServerMode"]
+__all__ = ["NotificationKind"]
 
 from enum import Enum
 
@@ -16,13 +16,3 @@ class NotificationKind(Enum):
 
     ANY = 2
     """Any notification"""
-
-
-class ServerMode(Enum):
-    """Enum for the server mode."""
-
-    RUN = "run"
-    """Create an event loop and run the server"""
-
-    SERVE = "serve"
-    """Serve the server in the existing event loop"""

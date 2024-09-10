@@ -278,8 +278,8 @@ def test_post(notifier: YouTubeNotifier) -> None:
     response = client.post(CALLBACK_URL, headers=headers, content="Invalid")
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
-    response = client.post(CALLBACK_URL, headers=headers, content="<feed/>")
-    assert response.status_code == HTTPStatus.BAD_REQUEST
+    with pytest.raises(RuntimeError):
+        response = client.post(CALLBACK_URL, headers=headers, content="<feed/>")
 
     password = notifier._config.password
     notifier._config.password = "password"  # noqa: S105

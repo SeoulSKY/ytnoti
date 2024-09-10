@@ -42,7 +42,7 @@ from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
-from ytnoti.enums import NotificationKind, ServerMode
+from ytnoti.enums import NotificationKind
 from ytnoti.errors import HTTPError
 from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
@@ -77,7 +77,6 @@ class AsyncYouTubeNotifier:
         """
         self._logger = logging.getLogger(self.__class__.__name__)
         self._config = YouTubeNotifierConfig(
-            ServerMode.SERVE,
             callback_url,
             "",
             -1,
@@ -764,9 +763,8 @@ class AsyncYouTubeNotifier:
 
                 if kind == NotificationKind.UPLOAD:
                     await self._video_history.add(video)
-        except (TypeError, KeyError, ValueError):
-            self._logger.exception("Failed to parse request body: %s", body)
-            return Response(status_code=HTTPStatus.BAD_REQUEST.value)
+        except (TypeError, KeyError, ValueError) as ex:
+            raise RuntimeError(f"Failed to parse request body: {body}") from ex
 
         return Response(status_code=HTTPStatus.NO_CONTENT.value)
 
@@ -824,8 +822,6 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
             password=password,
             video_history=video_history,
         )
-
-        self._config.server_mode = ServerMode.RUN
 
     def subscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
         return self._run_coroutine(super().subscribe(channel_ids))

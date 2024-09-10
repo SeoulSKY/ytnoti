@@ -4,15 +4,10 @@ from dataclasses import dataclass
 
 from fastapi import FastAPI
 
-from ytnoti import ServerMode
-
 
 @dataclass
 class YouTubeNotifierConfig:
     """Represents the configuration of the YouTubeNotifier."""
-
-    server_mode: ServerMode
-    """The mode to run the FastAPI app on"""
 
     callback_url: str | None
     """The URL to receive notifications from YouTube"""
