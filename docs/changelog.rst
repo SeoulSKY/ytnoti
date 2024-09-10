@@ -1,6 +1,15 @@
 Changelog
 ==========
 
+v2.1.1
+------
+
+* Fix raising error when the push notification for deleted video is received.
+* From now on, ``ytnoti`` explicitly raises ``RuntimeError`` when failed to parse the request body from YouTube. In the past, it logged the error to the logger.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.1.0...v2.1.1
+
+
 v2.1.0
 ------
 

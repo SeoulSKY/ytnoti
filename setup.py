@@ -7,7 +7,7 @@ with open("README.md", encoding="utf-8") as file:  # noqa: PTH123
 
 setup(
     name="ytnoti",
-    version="2.1.0",
+    version="2.1.1",
     packages=find_packages(),
     author="SeoulSKY",
     author_email="contact@seoulsky.org",

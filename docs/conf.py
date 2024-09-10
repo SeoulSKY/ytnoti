@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(".."))  # noqa: PTH100
 project = "ytnoti"
 copyright = "2024 - Present, SeoulSKY"  # noqa: A001
 author = "SeoulSKY"
-release = "2.1.0"
+release = "2.1.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
