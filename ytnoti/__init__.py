@@ -558,7 +558,7 @@ class AsyncYouTubeNotifier:
                 response = await client.head(
                     f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
                 )
-                if response.status_code != HTTPStatus.OK.value:
+                if response.status_code != HTTPStatus.OK:
                     raise ValueError(f"Invalid channel ID: {channel_id}")
 
 
@@ -654,7 +654,7 @@ class AsyncYouTubeNotifier:
                     headers={"Content-type": "application/x-www-form-urlencoded"},
                 )
 
-            if response.status_code == HTTPStatus.CONFLICT.value:  # pragma: no cover
+            if response.status_code == HTTPStatus.CONFLICT:  # pragma: no cover
                 if not self.is_ready:
                     raise ConnectionError(
                         f"Cannot {mode} while the server is not ready"
@@ -667,7 +667,7 @@ class AsyncYouTubeNotifier:
                     response.status_code,
                 )
 
-            if response.status_code != HTTPStatus.NO_CONTENT.value:  # pragma: no cover
+            if response.status_code != HTTPStatus.NO_CONTENT:  # pragma: no cover
                 raise HTTPError(
                     f"Failed to {mode} channel: {channel_id}", response.status_code
                 )
@@ -700,23 +700,30 @@ class AsyncYouTubeNotifier:
         """Handle a challenge from the Google pubsubhubbub server."""
         challenge = request.query_params.get("hub.challenge")
         if challenge is None:
-            return Response(status_code=HTTPStatus.BAD_REQUEST.value)
+            return Response(status_code=HTTPStatus.BAD_REQUEST)
 
         return Response(challenge)
 
     async def _post(self, request: Request) -> Response:
         """Handle push notifications from the Google pubsubhubbub server."""
         if not await self._is_authorized(request):
-            return Response(status_code=HTTPStatus.UNAUTHORIZED.value)
+            return Response(status_code=HTTPStatus.UNAUTHORIZED)
+
+        body = await request.body()
 
         try:
-            body = xmltodict.parse(await request.body())
+            body = xmltodict.parse(body)
         except ExpatError:
-            return Response(status_code=HTTPStatus.BAD_REQUEST.value)
+            self._logger.debug("Received invalid request body: %s", body)
+            return Response(status_code=HTTPStatus.BAD_REQUEST)
 
         self._logger.debug("Received push notification: %s", body)
 
         try:
+            if "at:deleted-entry" in body["feed"]:
+                self._logger.debug("Ignoring push notification for deleted video")
+                return Response(status_code=HTTPStatus.NO_CONTENT)
+
             # entry can be list of dict or just dict
             entries = (
                 body["feed"]["entry"]
@@ -766,7 +773,7 @@ class AsyncYouTubeNotifier:
         except (TypeError, KeyError, ValueError) as ex:
             raise RuntimeError(f"Failed to parse request body: {body}") from ex
 
-        return Response(status_code=HTTPStatus.NO_CONTENT.value)
+        return Response(status_code=HTTPStatus.NO_CONTENT)
 
     @staticmethod
     def _parse_timestamp(timestamp: str) -> datetime:

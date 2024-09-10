@@ -15,6 +15,8 @@ channel_ids = [
     "UCupvZG-5ko_eiXAupbDfxWw",
 ]
 
+# ruff: noqa: E501 ERA001
+
 xmls = [
     """
     <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
@@ -95,7 +97,21 @@ xmls = [
       </entry>
     </feed>
     """,
+    """
+    <feed xmlns:at="http://purl.org/atompub/tombstones/1.0" xmlns="http://www.w3.org/2005/Atom">
+        <at:deleted-entry ref="yt:video:VIDEO_ID" when="2024-09-09T22:34:19.642702+00:00">
+            <link href="https://www.youtube.com/watch?v=VIDEO_ID" />
+            <at:by>
+                <name>Channel title</name>
+                <uri>https://www.youtube.com/channel/CHANNEL_ID</uri>
+            </at:by>
+        </at:deleted-entry>
+    </feed>
+    """,
 ]
+
+# ruff: enable
+
 
 @pytest.fixture(scope="session")
 def notifier() -> YouTubeNotifier:
@@ -279,7 +295,7 @@ def test_post(notifier: YouTubeNotifier) -> None:
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
     with pytest.raises(RuntimeError):
-        response = client.post(CALLBACK_URL, headers=headers, content="<feed/>")
+        client.post(CALLBACK_URL, headers=headers, content="<feed/>")
 
     password = notifier._config.password
     notifier._config.password = "password"  # noqa: S105
