@@ -115,7 +115,7 @@ class FileVideoHistory(VideoHistory):
         if not await ospath.exists(path):
             return
 
-        async with aiofiles.open(path, "r", encoding="utf-8") as file:
+        async with aiofiles.open(path, encoding="utf-8") as file:
             lines = await file.readlines()
 
         async with aiofiles.open(path, "w", encoding="utf-8") as file:
@@ -149,7 +149,7 @@ class FileVideoHistory(VideoHistory):
             if not await ospath.exists(path):
                 return False
 
-            async with aiofiles.open(path, "r", encoding="utf-8") as file:
+            async with aiofiles.open(path, encoding="utf-8") as file:
                 async for line in file:
                     if line.strip() == video.id:
                         return True
