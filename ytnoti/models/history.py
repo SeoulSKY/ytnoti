@@ -65,7 +65,7 @@ class InMemoryVideoHistory(VideoHistory):
         :param video: The video to add.
         """
         async with self._lock:
-            if self.has(video):
+            if video.id in self._video_ids:
                 self._logger.debug("Skipping to add video (%s) that already "
                                    "exists in history", video.id)
                 return
