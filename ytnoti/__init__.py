@@ -417,7 +417,10 @@ class AsyncYouTubeNotifier:
             await self._register(self._subscribed_ids)
 
         async def task() -> None:  # pragma: no cover
-            await self._register(self._subscribed_ids)
+            try:
+                await self._register(self._subscribed_ids)
+            except RuntimeError:
+                self._logger.exception("")
 
         self._config.app.add_event_handler(
             "startup", lambda: asyncio.create_task(on_ready())
@@ -431,8 +434,8 @@ class AsyncYouTubeNotifier:
         server = Server(self._get_server_config(**configs))
         return server  # noqa: RET504
 
-    @staticmethod
-    async def _repeat_task(task: Callable[[], Coroutine[Any, Any, Any]],
+    async def _repeat_task(self,
+                           task: Callable[[], Coroutine[Any, Any, Any]],
                            interval: float,
                            predicate: Callable[[], bool] | None = None) -> None:
         """Repeatedly run a task.
@@ -444,7 +447,10 @@ class AsyncYouTubeNotifier:
         """
         while not predicate or predicate():
             await asyncio.sleep(interval)
-            await task()
+            try:
+                await task()
+            except Exception:
+                self._logger.exception("Failed to repeat task")
 
     async def serve(
             self,
