@@ -2,10 +2,10 @@
 
 import logging
 from abc import ABC, abstractmethod
+from asyncio import Lock
 from collections import OrderedDict
 from os import PathLike
 from pathlib import Path
-from threading import Lock
 
 import aiofiles
 from aiofiles import os, ospath
@@ -52,25 +52,26 @@ class InMemoryVideoHistory(VideoHistory):
 
         :return: The size of the cache.
         """
-        with self._lock:
-            return self._cache_size
+        return self._cache_size
 
     @cache_size.setter
     def cache_size(self, value: int) -> None:
-        with self._lock:
-            self._logger.debug("Setting cache size to %d", value)
-            self._cache_size = value
+        self._logger.debug("Setting cache size to %d", value)
+        self._cache_size = value
 
     async def add(self, video: Video) -> None:
         """Add a video to the history.
 
         :param video: The video to add.
         """
-        with self._lock:
-            if video.id in self._video_ids:
+        async with self._lock:
+            if self.has(video):
+                self._logger.debug("Skipping to add video (%s) that already "
+                                   "exists in history", video.id)
                 return
 
             if len(self._video_ids) >= self._cache_size:
+                self._logger.debug("Removing oldest video from history")
                 self._video_ids.popitem(last=False)
 
             self._logger.debug("Adding video (%s) to history", video.id)
@@ -81,7 +82,7 @@ class InMemoryVideoHistory(VideoHistory):
 
         :param video: The video to check.
         """
-        with self._lock:
+        async with self._lock:
             return video.id in self._video_ids
 
 
@@ -129,7 +130,7 @@ class FileVideoHistory(VideoHistory):
 
         path = self._get_path(video.channel)
 
-        with self._lock:
+        async with self._lock:
             await os.makedirs(path.parent, exist_ok=True)
 
             async with aiofiles.open(path, "a", encoding="utf-8") as file:
@@ -145,7 +146,7 @@ class FileVideoHistory(VideoHistory):
         """
         path = self._get_path(video.channel)
 
-        with self._lock:
+        async with self._lock:
             if not await ospath.exists(path):
                 return False
 

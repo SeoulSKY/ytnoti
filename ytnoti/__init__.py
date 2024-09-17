@@ -764,6 +764,8 @@ class AsyncYouTubeNotifier:
                 )
 
                 kind = await self._get_kind(video)
+                self._logger.debug("Classified video (%s) as %s", video, kind)
+
                 listeners = (
                     self._get_listeners(kind, None)
                     + self._get_listeners(kind, channel.id)
