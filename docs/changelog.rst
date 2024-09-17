@@ -1,6 +1,14 @@
 Changelog
 ==========
 
+v2.1.2
+------
+
+* Fix not properly handling errors when resubscribing to channels every day.
+* Fix race conditions in ``InMemoryVideoHistory`` and ``FileVideoHistory``
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.1.1...v2.1.2
+
 v2.1.1
 ------
 
