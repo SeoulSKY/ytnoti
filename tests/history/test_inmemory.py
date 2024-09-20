@@ -3,7 +3,6 @@
 import pytest
 
 from tests import get_video
-from ytnoti import NotificationKind, YouTubeNotifier
 from ytnoti.models.history import InMemoryVideoHistory
 
 CACHE_SIZE = 100
@@ -51,16 +50,3 @@ async def test_add(history: InMemoryVideoHistory) -> None:
 
     assert len(history._video_ids) == CACHE_SIZE
     assert video.id not in history._video_ids
-
-
-@pytest.mark.asyncio
-async def test_get_kind() -> None:
-    """Test getting the kind."""
-    notifier = YouTubeNotifier()
-    video = get_video()
-    video.timestamp.published = video.timestamp.updated
-
-    assert await notifier._get_kind(video) == NotificationKind.UPLOAD
-
-    await notifier._video_history.add(video)
-    assert await notifier._get_kind(video) == NotificationKind.UPLOAD

@@ -91,6 +91,7 @@ class AsyncYouTubeNotifier:
         self._subscribed_ids: set[str] = set()
         self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
+        self._lock = asyncio.Lock()
 
     @property
     def callback_url(self) -> str | None:
@@ -308,21 +309,6 @@ class AsyncYouTubeNotifier:
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
         return self._add_listener(func, NotificationKind.EDIT, channel_ids)
-
-    async def _get_kind(self, video: Video) -> NotificationKind:
-        """Get the kind of notification based on the video.
-
-        :param video: The video to get the kind of notification for.
-        :return: The kind of notification.
-        """
-        if video.timestamp.updated == video.timestamp.published:
-            return NotificationKind.UPLOAD
-
-        return (
-            NotificationKind.EDIT
-            if await self._video_history.has(video)
-            else NotificationKind.UPLOAD
-        )
 
     def _get_listeners(
         self, kind: NotificationKind, channel_id: str | None
@@ -755,16 +741,25 @@ class AsyncYouTubeNotifier:
                     else entry["link"]["@href"]
                 )
 
+                video_id = entry["yt:videoId"]
+
                 video = Video(
-                    id=entry["yt:videoId"],
+                    id=video_id,
                     title=entry["title"],
                     url=url,
                     timestamp=timestamp,
                     channel=channel,
                 )
 
-                kind = await self._get_kind(video)
-                self._logger.debug("Classified video (%s) as %s", video, kind)
+                async with self._lock:
+                    if (timestamp.published == timestamp.updated or
+                            not await self._video_history.has(video)):
+                        kind = NotificationKind.UPLOAD
+                        await self._video_history.add(video)
+                    else:
+                        kind = NotificationKind.EDIT
+
+                self._logger.debug("Classified video (%s) as %s", video.id, kind)
 
                 listeners = (
                     self._get_listeners(kind, None)
@@ -775,9 +770,6 @@ class AsyncYouTubeNotifier:
 
                 for func in listeners:
                     await func(video)
-
-                if kind == NotificationKind.UPLOAD:
-                    await self._video_history.add(video)
         except (TypeError, KeyError, ValueError) as ex:
             raise RuntimeError(f"Failed to parse request body: {body}") from ex
 
