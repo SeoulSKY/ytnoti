@@ -1,12 +1,11 @@
 """Contains the tests for the class YouTubeNotifier."""
-import asyncio
 from datetime import UTC, datetime
 from http import HTTPStatus
+from threading import Thread
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import Response
 
 from tests import CALLBACK_URL
 from ytnoti import Video, YouTubeNotifier
@@ -312,25 +311,35 @@ def test_post(notifier: YouTubeNotifier) -> None:
     notifier._config.password = password
 
 
-@pytest.mark.asyncio
-async def test_post_race_condition(notifier: YouTubeNotifier) -> None:
+def test_post_race_condition() -> None:
     """Test the post method of the YouTubeNotifier class with race condition."""
+    notifier = YouTubeNotifier()
     client = TestClient(notifier._config.app)
     headers = {"Content-Type": "application/xml"}
 
     num_called = 0
 
+    @notifier.upload()
     async def listener(_video: Video) -> None:
         nonlocal num_called
         num_called += 1
 
-    notifier.add_upload_listener(listener)
+    def send_post() -> None:
+        client.post(CALLBACK_URL, headers=headers, content=xmls[0])
 
-    def send_post() -> Response:
-        return client.post(CALLBACK_URL, headers=headers, content=xmls[0])
+    password = notifier._config.password
+    notifier._config.password = ""
 
-    tasks = [asyncio.to_thread(send_post) for _ in range(2)]
-    await asyncio.gather(*tasks)
+    threads = [Thread(target=send_post) for _ in range(2)]
+
+    with notifier.run_in_background():
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+    notifier._config.password = password
 
     assert num_called == 1
 
