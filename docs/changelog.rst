@@ -1,6 +1,13 @@
 Changelog
 ==========
 
+v2.1.3
+------
+
+* Fix a race condition that can cause duplicated notifications.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.1.2...v2.1.3
+
 v2.1.2
 ------
 
