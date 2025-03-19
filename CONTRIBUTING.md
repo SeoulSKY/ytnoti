@@ -47,7 +47,7 @@ Follow [PEP 8 Guidelines](https://peps.python.org/pep-0008/), which are standard
 
 - You can try running `ruff` for style unification
 
-If you have any questions, please don't hesitate to ask. You can contact me via [Discord](https://discord.seoulsky.org) or email: contact@seoulsky.org.
+If you have any questions, please don't hesitate to ask. You can contact me via [Discord](https://discord.seoulsky.org) or email: contact@seoulsky.dev.
 
 ## License
 
