@@ -10,16 +10,6 @@ We want to make contributing to this project as easy and transparent as possible
 - Proposing new features
 - Becoming a maintainer
 
-## Table of Contents
-
-- [How to Contribute to the codebase](#how-to-contribute-to-the-codebase)
-- [How to localize SoruSora into a different language](#how-to-localize-sorusora-into-a-different-language)
-- [Report bugs using Github's issues](#report-bugs-using-githubs-issues)
-- [Write bug reports with detail, background, and sample code](#write-bug-reports-with-detail-background-and-sample-code)
-- [Use a Consistent Coding Style](#use-a-consistent-coding-style)
-- [License](#license)
-- [Code of Conduct](#code-of-conduct)
-
 ## How to Contribute to the codebase
 
 Pull requests are the best way to propose changes to the codebase (we use [Github Flow](https://guides.github.com/introduction/flow/index.html)). We actively welcome your pull requests:
