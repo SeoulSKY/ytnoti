@@ -4,15 +4,15 @@ videos are updated.
 """
 
 __all__ = [
-    "YouTubeNotifier",
     "AsyncYouTubeNotifier",
-    "NotificationKind",
-    "YouTubeNotifierConfig",
     "Channel",
-    "Video",
-    "Timestamp",
+    "NotificationKind",
     "NotificationListener",
     "T",
+    "Timestamp",
+    "Video",
+    "YouTubeNotifier",
+    "YouTubeNotifierConfig",
 ]
 
 import asyncio

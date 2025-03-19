@@ -1,6 +1,6 @@
 """Contains the dataclasses for the video model."""
 
-__all__ = ["Video", "Channel", "Timestamp"]
+__all__ = ["Channel", "Timestamp", "Video"]
 
 
 from dataclasses import dataclass
