@@ -1,4 +1,5 @@
 <div align="center">
+    <img width="250" height="175" alt="logo" src="https://github.com/user-attachments/assets/14ed8fa6-7c2a-43dc-b9f4-05a54927c47d" />
     <h1>ytnoti</h1>
 </div>
 
