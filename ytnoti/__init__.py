@@ -8,7 +8,6 @@ __all__ = [
     "Channel",
     "NotificationKind",
     "NotificationListener",
-    "T",
     "Timestamp",
     "Video",
     "YouTubeNotifier",
@@ -24,7 +23,7 @@ import string
 import time
 import warnings
 from asyncio import Task
-from collections.abc import Callable, Coroutine, Iterable
+from collections.abc import AsyncIterator, Callable, Coroutine, Iterable, Iterator
 from contextlib import asynccontextmanager, contextmanager, suppress
 from datetime import datetime
 from http import HTTPStatus
@@ -62,7 +61,7 @@ class AsyncYouTubeNotifier:
         *,
         callback_url: str | None = None,
         password: str | None = None,
-        video_history: VideoHistory = None,
+        video_history: VideoHistory | None = None,
     ) -> None:
         """Set up the YouTubeNotifier instance.
 
@@ -130,7 +129,7 @@ class AsyncYouTubeNotifier:
             "listener() is deprecated since version 2.1.0 and will be removed "
             "in version 3.0.0. Use upload(), edit(), or any() instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
         return self._listener(kind=kind, channel_ids=channel_ids)
@@ -151,6 +150,7 @@ class AsyncYouTubeNotifier:
         :return: The decorator function.
         :raises ValueError: If the channel ID is '_all'.
         """
+
         def decorator(func: NotificationListener) -> NotificationListener:
             self._add_listener(func, kind, channel_ids)
 
@@ -220,7 +220,7 @@ class AsyncYouTubeNotifier:
             "in version 3.0.0. Use add_upload_listener(), add_edit_listener(), "
             "or add_any_listener() instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
         return self._add_listener(func, kind, channel_ids)
@@ -349,7 +349,12 @@ class AsyncYouTubeNotifier:
         return Config(self._config.app, self._config.host, self._config.port, **configs)
 
     def _get_server(
-        self, *, host: str, port: int, app: FastAPI = None, **configs: Any  # noqa: ANN401
+        self,
+        *,
+        host: str,
+        port: int,
+        app: FastAPI | None = None,
+        **configs: object,
     ) -> Server:
         """Create a server instance to receive push notifications.
 
@@ -395,7 +400,7 @@ class AsyncYouTubeNotifier:
                         )
                         if response.status_code == HTTPStatus.OK:
                             break
-                except ConnectionError:   # pragma: no cover
+                except ConnectionError:  # pragma: no cover
                     continue
 
             self._server = server
@@ -412,18 +417,19 @@ class AsyncYouTubeNotifier:
             "startup", lambda: asyncio.create_task(on_ready())
         )
         self._config.app.add_event_handler(
-            "startup", lambda: asyncio.create_task(self._repeat_task(
-                task, 60 * 60 * 24)
-            )
+            "startup",
+            lambda: asyncio.create_task(self._repeat_task(task, 60 * 60 * 24)),
         )
 
         server = Server(self._get_server_config(**configs))
-        return server  # noqa: RET504
+        return server
 
-    async def _repeat_task(self,
-                           task: Callable[[], Coroutine[Any, Any, Any]],
-                           interval: float,
-                           predicate: Callable[[], bool] | None = None) -> None:
+    async def _repeat_task(
+        self,
+        task: Callable[[], Coroutine[Any, Any, Any]],
+        interval: float,
+        predicate: Callable[[], bool] | None = None,
+    ) -> None:
         """Repeatedly run a task.
 
         :param task: The coroutine to repeat
@@ -439,13 +445,13 @@ class AsyncYouTubeNotifier:
                 self._logger.exception("Failed to repeat task")
 
     async def serve(
-            self,
-            *,
-            host: str = "0.0.0.0",  # noqa: S104
-            port: int = 8000,
-            log_level: int = logging.WARNING,
-            app: FastAPI = None,
-            **configs: Any,  # noqa: ANN401
+        self,
+        *,
+        host: str = "0.0.0.0",  # noqa: S104
+        port: int = 8000,
+        log_level: int = logging.WARNING,
+        app: FastAPI | None = None,
+        **configs: object,
     ) -> None:  # pragma: no cover
         """Start the FastAPI server to receive push notifications in an existing event
             loop and wait until the server stops.
@@ -476,8 +482,8 @@ class AsyncYouTubeNotifier:
         host: str = "0.0.0.0",  # noqa: S104
         port: int = 8000,
         log_level: int = logging.WARNING,
-        app: FastAPI = None,
-        **configs: Any,  # noqa: ANN401
+        app: FastAPI | None = None,
+        **configs: object,
     ) -> None:
         """Start the FastAPI server to receive push notifications in an existing event
             loop and wait until the server stops.
@@ -512,13 +518,15 @@ class AsyncYouTubeNotifier:
             await self._on_exit()
 
     @asynccontextmanager
-    async def run_in_background(self,
-                      *,
-                      host: str = "0.0.0.0",  # noqa: S104
-                      port: int = 8000,
-                      app: FastAPI = None,
-                      log_level: int = logging.WARNING,
-                      **configs: Any) -> Task:  # noqa: ANN401
+    async def run_in_background(
+        self,
+        *,
+        host: str = "0.0.0.0",  # noqa: S104
+        port: int = 8000,
+        app: FastAPI | None = None,
+        log_level: int = logging.WARNING,
+        **configs: object,
+    ) -> AsyncIterator[Task]:
         """Run the FastAPI server in an existing event loop and return immediately.
 
         :param host: The host IP address to bind the server.
@@ -552,7 +560,6 @@ class AsyncYouTubeNotifier:
                 )
                 if response.status_code != HTTPStatus.OK:
                     raise ValueError(f"Invalid channel ID: {channel_id}")
-
 
     async def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
         """Subscribe to YouTube channels to receive push notifications.
@@ -592,8 +599,10 @@ class AsyncYouTubeNotifier:
             channel_ids = [channel_ids]
 
         if not self._subscribed_ids.issuperset(channel_ids):
-            raise ValueError(f"No such subscribed channel IDs: "
-                             f"{self._subscribed_ids.difference(channel_ids)}")
+            raise ValueError(
+                f"No such subscribed channel IDs: "
+                f"{self._subscribed_ids.difference(channel_ids)}"
+            )
 
         unsubscribe_ids = self._subscribed_ids.intersection(channel_ids)
 
@@ -752,8 +761,10 @@ class AsyncYouTubeNotifier:
                 )
 
                 async with self._lock:
-                    if (timestamp.published == timestamp.updated or
-                            not await self._video_history.has(video)):
+                    if (
+                        timestamp.published == timestamp.updated
+                        or not await self._video_history.has(video)
+                    ):
                         kind = NotificationKind.UPLOAD
                         await self._video_history.add(video)
                     else:
@@ -810,7 +821,7 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         *,
         callback_url: str | None = None,
         password: str | None = None,
-        video_history: VideoHistory = None,
+        video_history: VideoHistory | None = None,
     ) -> None:
         """Create a new YouTubeNotifier instance.
 
@@ -836,13 +847,15 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
     def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
         return self._run_coroutine(super().unsubscribe(channel_ids))
 
-    def run(self,
+    def run(
+        self,
         *,
         host: str = "0.0.0.0",  # noqa: S104
         port: int = 8000,
-        app: FastAPI = None,
+        app: FastAPI | None = None,
         log_level: int = logging.WARNING,
-        **configs: Any) -> None:  # noqa: ANN401
+        **configs: object,
+    ) -> None:
         """Start the FastAPI server to receive push notifications in the
             current thread and wait until the server stops.
 
@@ -867,13 +880,15 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
             self._on_exit()
 
     @contextmanager
-    def run_in_background(self,
-                      *,
-                      host: str = "0.0.0.0",  # noqa: S104
-                      port: int = 8000,
-                      app: FastAPI = None,
-                      log_level: int = logging.WARNING,
-                      **configs: Any) -> Thread:  # noqa: ANN401
+    def run_in_background(
+        self,
+        *,
+        host: str = "0.0.0.0",  # noqa: S104
+        port: int = 8000,
+        app: FastAPI | None = None,
+        log_level: int = logging.WARNING,
+        **configs: object,
+    ) -> Iterator[Thread]:
         """Start the FastAPI server to receive push notifications in the separate
             thread and return immediately.
 
