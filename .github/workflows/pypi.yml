@@ -33,8 +33,3 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
           uv publish --token $UV_PUBLISH_TOKEN
-
-      # Clean up build files (optional)
-      - name: Cleanup build files
-        run: |
-          rm -rf build dist *.egg-info
