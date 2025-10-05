@@ -11,7 +11,7 @@ from ytnoti import Channel, Timestamp, Video
 CALLBACK_URL = "http://localhost:8000"
 
 load_dotenv()
-ngrok.set_auth_token(os.getenv("NGROK_TOKEN"))
+ngrok.set_auth_token(os.environ["NGROK_TOKEN"])
 
 
 def get_channel() -> Channel:
@@ -19,7 +19,9 @@ def get_channel() -> Channel:
     return Channel(
         id="mock_channel_id",
         name="Mock Channel",
-        url="https://www.youtube.com/channel/mock_channel")
+        url="https://www.youtube.com/channel/mock_channel",
+    )
+
 
 def get_video() -> Video:
     """Create a mock video."""
@@ -29,7 +31,7 @@ def get_video() -> Video:
         url="https://www.youtube.com/watch?v=mock_video",
         timestamp=Timestamp(
             published=datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC),
-            updated=datetime(2023, 1, 1, 13, 0, 0, tzinfo=UTC)
+            updated=datetime(2023, 1, 1, 13, 0, 0, tzinfo=UTC),
         ),
-        channel=get_channel()
+        channel=get_channel(),
     )

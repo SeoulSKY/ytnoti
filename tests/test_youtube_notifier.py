@@ -1,4 +1,6 @@
 """Contains the tests for the class YouTubeNotifier."""
+
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from http import HTTPStatus
 from threading import Thread
@@ -12,7 +14,7 @@ from ytnoti import Video, YouTubeNotifier
 
 channel_ids = [
     "UCPF-oYb2-xN5FbCXy0167Gg",
-    "UC9EEyg7QBL-stRX-7hTV3ng",
+    "UCuFFtHWoLl5fauMMD5Ww2jA",
     "UCupvZG-5ko_eiXAupbDfxWw",
 ]
 
@@ -115,7 +117,7 @@ xmls = [
 
 
 @pytest.fixture(scope="session")
-def notifier() -> YouTubeNotifier:
+def notifier() -> Iterator[YouTubeNotifier]:
     """Setup/Teardown code that runs before and after the tests in this package."""
     noti = YouTubeNotifier()
     noti._config.password = ""
@@ -153,6 +155,7 @@ def test_unsubscribe(notifier: YouTubeNotifier) -> None:
         notifier.unsubscribe(channel_ids)
 
     assert len(notifier._subscribed_ids) == 0
+
 
 def test_listener(notifier: YouTubeNotifier) -> None:
     """Test the upload decorator of the YouTubeNotifier class."""
@@ -256,6 +259,7 @@ def test_get_server(notifier: YouTubeNotifier) -> None:
 
     notifier._config.using_ngrok = using_ngrok
 
+
 @pytest.mark.asyncio
 async def test_verify_channel_ids() -> None:
     """Test verifying channel IDs."""
@@ -264,6 +268,7 @@ async def test_verify_channel_ids() -> None:
 
     with pytest.raises(ValueError):
         await notifier._verify_channel_ids(["Invalid"])
+
 
 def test_get(notifier: YouTubeNotifier) -> None:
     """Test the get method of the YouTubeNotifier class."""
@@ -303,9 +308,11 @@ def test_post(notifier: YouTubeNotifier) -> None:
     response = client.post(CALLBACK_URL, headers=headers, content=xmls[0])
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    response = client.post(CALLBACK_URL, headers={
-        **headers, "X-Hub-Signature": "sha256=password"
-    }, content=xmls[0])
+    response = client.post(
+        CALLBACK_URL,
+        headers={**headers, "X-Hub-Signature": "sha256=password"},
+        content=xmls[0],
+    )
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
     notifier._config.password = password
@@ -343,6 +350,7 @@ def test_post_race_condition() -> None:
 
     assert num_called == 1
 
+
 @pytest.mark.asyncio
 async def test_repeat_task() -> None:
     """Test repeat method of the YouTubeNotifier class."""
@@ -352,11 +360,13 @@ async def test_repeat_task() -> None:
     started = datetime.now(UTC)
 
     called = 0
+
     async def task() -> None:
         nonlocal called
         called += 1
 
-    await notifier._repeat_task(task, 1, lambda: (datetime.now(UTC) - started)
-                                .total_seconds() < timeout)
+    await notifier._repeat_task(
+        task, 1, lambda: (datetime.now(UTC) - started).total_seconds() < timeout
+    )
 
     assert timeout - 1 <= called <= timeout

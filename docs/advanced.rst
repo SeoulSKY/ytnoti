@@ -50,7 +50,7 @@ However, you can pass your own FastAPI instance when you run (Async)YouTubeNotif
         print(f"New video from {video.channel.name}: {video.title}")
 
 
-    notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+    notifier.subscribe("UCuFFtHWoLl5fauMMD5Ww2jA")  # Channel ID of CBC News
     notifier.run(app=app)
 
 

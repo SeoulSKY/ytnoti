@@ -47,7 +47,7 @@ Following is the example code to get you started:
         print(f"New video from {video.channel.name}: {video.title}")
 
 
-    notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+    notifier.subscribe("UCuFFtHWoLl5fauMMD5Ww2jA")  # Channel ID of CBC News
     notifier.run()
 
 Using Decorators
@@ -63,16 +63,16 @@ They take an optional parameter ``channel_ids`` to only listen to events from sp
 
 .. code:: python
 
-    @notifier.upload(channel_ids="UC9EEyg7QBL-stRX-7hTV3ng")
+    @notifier.upload(channel_ids="UCuFFtHWoLl5fauMMD5Ww2jA")
     async def listener(video: Video):
-        print(f"New video from SpeedyStyle: {video.title}")
+        print(f"New video from CBC News: {video.title}")
 
 You can combine multiple decorators to listen to multiple events.
-Following example listens to any channel's edit event and SpeedyStyle's upload event.
+Following example listens to any channel's edit event and CBC News' upload event.
 
 .. code:: python
 
     @notifier.edit()
-    @notifier.upload(channel_ids="UC9EEyg7QBL-stRX-7hTV3ng")
+    @notifier.upload(channel_ids="UCuFFtHWoLl5fauMMD5Ww2jA")
     async def listener(video: Video):
-        print(f"New video from SpeedyStyle: {video.title}")
+        print(f"New video from CBC News: {video.title}")

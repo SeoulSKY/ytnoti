@@ -75,7 +75,7 @@ Following is a simple example of how to use `ngrok <https://dashboard.ngrok.com/
        print(f"New video from {video.channel.name}: {video.title}")
 
 
-   notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+   notifier.subscribe("UCuFFtHWoLl5fauMMD5Ww2jA")  # Channel ID of CBC News
    notifier.run()
 
 Following is a simple example of how to use your domain to receive push notifications.
@@ -92,7 +92,7 @@ Following is a simple example of how to use your domain to receive push notifica
        print(f"New video from {video.channel.name}: {video.title}")
 
 
-   notifier.subscribe("UC9EEyg7QBL-stRX-7hTV3ng")  # Channel ID of SpeedyStyle
+   notifier.subscribe("UCuFFtHWoLl5fauMMD5Ww2jA")  # Channel ID of CBC News
    notifier.run()
 
 
