@@ -3,12 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. figure:: https://github.com/user-attachments/assets/14ed8fa6-7c2a-43dc-b9f4-05a54927c47d
+    :width: 250px
+    :height: 175px
+    :alt: logo
+    :align: center
+
 ytnoti
 -------
 
 .. image:: https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue?logo=python
-   :target: https://www.python.org/downloads/release/python-3110/
-   :alt: Python version
+    :target: https://www.python.org/downloads/release/python-3110/
+    :alt: Python version
 
 .. image:: https://img.shields.io/pypi/v/ytnoti.svg?color=brightgreen&logo=pypi&logoColor=yellow
     :target: https://pypi.org/project/ytnoti/

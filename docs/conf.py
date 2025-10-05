@@ -60,6 +60,7 @@ html_css_files = [
 ]
 
 html_static_path = ["_static"]
+html_logo = "logo.png"
 
 autodoc_default_options = {
     "member-order": "bysource",
