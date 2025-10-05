@@ -28,7 +28,7 @@ jobs:
 
       - name: Run Pytest
         run: |
-          uv run pytest --cov
+          uv run pytest --cov --cov-report=xml
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
