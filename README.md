@@ -88,8 +88,8 @@ Your question may already be answered there.
 If you are having any problems with using this library, please feel free to ask for help in the issues section or
 on my Discord server.
 
-<a href="https://discord.gg/kQZDJJB">
-    <img alt="discord invite" src="http://invidget.switchblade.xyz/kQZDJJB">
+<a href="https://discord.gg/qvCdWEtqgB">
+    <img alt="discord invite" src="http://invidget.switchblade.xyz/qvCdWEtqgB">
 </a>
 
 # 📄 License
