@@ -2,9 +2,9 @@ name: Pytest
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -17,19 +17,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v4
+      - name: Install uv and python 3.13
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.13"
+          python-version: 3.13
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          uv sync --extra dev --frozen
 
       - name: Run Pytest
         run: |
-          pytest tests --cov
+          uv run pytest --cov
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4

@@ -14,12 +14,48 @@ We want to make contributing to this project as easy and transparent as possible
 
 Pull requests are the best way to propose changes to the codebase (we use [Github Flow](https://guides.github.com/introduction/flow/index.html)). We actively welcome your pull requests:
 
-1. Fork the repo and create your branch from `main`.
-2. If you've added code that should be tested, add tests.
-3. If you've changed APIs, update the documentation.
-4. Ensure the test suite passes.
-5. Make sure your code lints.
-6. Issue that pull request!
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), a modern Python package and project manager.  
+2. Install the latest stable version of Python (`3.13.7` as of writing).
+
+```bash
+uv python install 3.13.7
+```
+
+3. Pin the installed python version to the project.
+
+```bash
+uv python pin 3.13.7
+```
+
+4. Install and lock the development dependencies.
+
+```bash
+uv sync --extra dev
+```
+
+5. Write your code.
+6. Run the linter.
+
+```bash
+uv run ruff check .
+```
+
+7. Write tests for your code at `tests/` folder. Try to maintain high test coverage.
+8. Run tests with coverage.
+
+```bash
+uv run pytest --cov
+```
+
+9. Update the documentation at `docs/` folder if needed.
+10. Build the documentation to preview.
+
+```bash
+uv run sphinx-build -M html docs docs/build/
+```
+
+11. Open `docs/build/html/index.html` in your browser to preview the docs.
+12. Make a pull request and wait for the code review!
 
 ## Report bugs using Github's issues
 
@@ -47,7 +83,7 @@ Follow [PEP 8 Guidelines](https://peps.python.org/pep-0008/), which are standard
 
 - You can try running `ruff` for style unification
 
-If you have any questions, please don't hesitate to ask. You can contact me via [Discord](https://discord.seoulsky.org) or email: contact@seoulsky.dev.
+If you have any questions, please don't hesitate to ask. You can contact me via [Discord](https://discord.gg/qvCdWEtqgB) or email: contact@seoulsky.dev.
 
 ## License
 

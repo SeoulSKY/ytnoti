@@ -1,0 +1,35 @@
+[project]
+name = "ytnoti"
+version = "2.1.4"
+description = "Easy-to-use Python library for receiving YouTube push notification for video upload and edit in real-time"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [
+    { name = "SeoulSKY", email = "contact@seoulsky.dev" }
+]
+license = { text = "MIT" }
+urls = { "Homepage" = "https://github.com/SeoulSKY/ytnoti" }
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0,<1.0.0",
+    "httpx>=0.28.1,<1.0.0",
+    "uvicorn>=0.34.0,<1.0.0",
+    "xmltodict>=1.0.0,<1.0.0",
+    "pyngrok>=7.2.3,<8.0.0",
+    "aiofiles>=24.1.0,<25.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "pytest-asyncio>=1.2.0",
+    "python-dotenv>=1.1.1",
+    "ruff>=0.13.3",
+    "vermin>=1.6.0",
+    "sphinx>=8.2.3",
+    "furo>=2025.9.25",
+]
+
+[build-system]
+requires = ["setuptools>=80.9.0,<81.0.0"]
+build-backend = "setuptools.build_meta"
