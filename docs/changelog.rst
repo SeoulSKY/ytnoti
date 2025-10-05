@@ -1,6 +1,14 @@
 Changelog
 ==========
 
+v2.1.4
+------
+
+* Improve type hints for function parameters and return types. Previously, it didn't follow the best practices, such as using Any for keywords parameters.
+* Update dependencies to the latest versions.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.1.3...v2.1.4
+
 v2.1.3
 ------
 
