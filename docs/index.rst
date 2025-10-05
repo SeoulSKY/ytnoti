@@ -58,7 +58,7 @@ This library requires `Python 3.11` or higher.
 📖 Simple Example
 ------------------
 
-Following is a simple example of how to use `ngrok <https://dashboard.ngrok.com/get-started/setup>`_ to receive push notifications.
+Following is a simple example of how to use `ngrok <https://dashboard.ngrok.com/get-started/setup>`_ to receive push notifications (not recommended for production).
 
 .. code:: python
 

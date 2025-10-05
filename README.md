@@ -39,7 +39,7 @@ pip install ytnoti
 
 # 📖 Simple Example
 
-Following is a simple example of how to use [ngrok](https://dashboard.ngrok.com/get-started/setup) to receive push notifications.
+Following is a simple example of how to use [ngrok](https://dashboard.ngrok.com/get-started/setup) to receive push notifications (not recommended for production).
 
 ```python
 from pyngrok import ngrok
