@@ -6,7 +6,7 @@
 ytnoti
 -------
 
-.. image:: https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue?logo=python
+.. image:: https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue?logo=python
    :target: https://www.python.org/downloads/release/python-3110/
    :alt: Python version
 
@@ -103,8 +103,8 @@ For more examples, please visit the `examples <https://github.com/SeoulSKY/ytnot
 
 If you have any questions about this library please visit my Discord server.
 
-.. image:: http://invidget.switchblade.xyz/kQZDJJB
-   :target: https://discord.gg/kQZDJJB
+.. image:: http://invidget.switchblade.xyz/qvCdWEtqgB
+   :target: https://discord.gg/qvCdWEtqgB
    :alt: Discord server
 
 
