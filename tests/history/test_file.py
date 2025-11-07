@@ -1,5 +1,7 @@
 """Test the FileVideoHistory class."""
+
 import shutil
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -9,8 +11,9 @@ from ytnoti.models.history import FileVideoHistory
 
 NUM_VIDEOS = 100
 
+
 @pytest.fixture
-def history() -> FileVideoHistory:
+def history() -> Iterable[FileVideoHistory]:
     """Create a FileVideoHistory instance."""
     path = Path("./history")
     path.mkdir(parents=True, exist_ok=True)
@@ -36,6 +39,7 @@ async def test_has(history: FileVideoHistory) -> None:
     new_video = get_video()
     new_video.id = "-1"
     assert not await history.has(new_video)
+
 
 @pytest.mark.asyncio
 async def test_truncate(history: FileVideoHistory) -> None:

@@ -117,10 +117,10 @@ xmls = [
 def notifier() -> YouTubeNotifier:
     """Fixture for YouTubeNotifier."""
     notifier = YouTubeNotifier(callback_url=CALLBACK_URL)
-    notifier._config.password = ""
+    notifier._password = ""
 
     router = notifier._get_router()
-    notifier._config.app.include_router(router)
+    notifier._app.include_router(router)
 
     return notifier
 

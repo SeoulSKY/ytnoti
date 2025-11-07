@@ -50,7 +50,6 @@ from uvicorn import Config, Server
 
 from ytnoti.enums import NotificationKind
 from ytnoti.errors import HTTPError
-from ytnoti.models import YouTubeNotifierConfig
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
 from ytnoti.models.video import Channel, Timestamp, Video
 from ytnoti.types import NotificationListener, T
@@ -83,15 +82,16 @@ class AsyncYouTubeNotifier:
             a new instance of InMemoryVideoHistory will be created and used.
         """
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._config = YouTubeNotifierConfig(
-            callback_url,
-            "",
-            -1,
-            FastAPI(),
-            callback_url is None,
-            password
-            or str("".join(secrets.choice(string.ascii_letters) for _ in range(20))),
+
+        self._callback_url = callback_url
+        self._host = ""
+        self._port = -1
+        self._app = FastAPI()
+        self._using_ngrok = callback_url is None
+        self._password = password or str(
+            "".join(secrets.choice(string.ascii_letters) for _ in range(20))
         )
+
         self._listeners: dict[
             NotificationKind, dict[str, list[NotificationListener]]
         ] = {kind: {} for kind in NotificationKind}
@@ -107,7 +107,7 @@ class AsyncYouTubeNotifier:
 
         :return: The callback URL.
         """
-        return self._config.callback_url
+        return self._callback_url
 
     @property
     def is_ready(self) -> bool:
@@ -342,19 +342,19 @@ class AsyncYouTubeNotifier:
         :return: The FastAPI router.
         """
         router = APIRouter()
-        endpoint = urlparse(self._config.callback_url).path or "/"
+        endpoint = urlparse(self._callback_url).path or "/"
         router.add_api_route(endpoint, self._get, methods=["HEAD", "GET"])
         router.add_api_route(endpoint, self._post, methods=["POST"])
 
         return router
 
-    def _get_server_config(self, **configs: Any) -> Config:  # noqa: ANN401
+    def _get_server_config(self, **configs: object) -> Config:
         """Get the server configuration.
 
         :param configs: Additional arguments to pass to the server configuration.
         :return: The server configuration.
         """
-        return Config(self._config.app, self._config.host, self._config.port, **configs)
+        return Config(self._app, self._host, self._port, **configs)  # ty: ignore[invalid-argument-type]
 
     def _get_server(
         self,
@@ -375,27 +375,27 @@ class AsyncYouTubeNotifier:
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
         """
-        self._config.host = host
-        self._config.port = port
-        self._config.app = app or self._config.app
+        self._host = host
+        self._port = port
+        self._app = app or self._app
 
-        if self._config.using_ngrok:
-            self._config.callback_url = ngrok.connect(str(port)).public_url
+        if self._using_ngrok:
+            self._callback_url = ngrok.connect(str(port)).public_url
 
-        self._logger.info("Callback URL: %s", self._config.callback_url)
+        self._logger.info("Callback URL: %s", self._callback_url)
 
-        endpoint = urlparse(self._config.callback_url).path or "/"
+        endpoint = urlparse(self._callback_url).path or "/"
 
         if any(
             isinstance(route, APIRoute | Route) and route.path == endpoint
-            for route in self._config.app.routes
+            for route in self._app.routes
         ):
             raise ValueError(
                 f"Endpoint {endpoint} is reserved for {__package__} "
                 f"so it cannot be used by the app"
             )
 
-        self._config.app.include_router(self._get_router())
+        self._app.include_router(self._get_router())
 
         async def on_ready() -> None:
             while True:
@@ -404,7 +404,7 @@ class AsyncYouTubeNotifier:
                 try:
                     async with AsyncClient() as client:
                         response = await client.head(
-                            self._config.callback_url, params={"hub.challenge": "1"}
+                            self._callback_url, params={"hub.challenge": "1"}
                         )
                         if response.status_code == HTTPStatus.OK:
                             break
@@ -421,10 +421,8 @@ class AsyncYouTubeNotifier:
             except RuntimeError:
                 self._logger.exception("")
 
-        self._config.app.add_event_handler(
-            "startup", lambda: asyncio.create_task(on_ready())
-        )
-        self._config.app.add_event_handler(
+        self._app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
+        self._app.add_event_handler(
             "startup",
             lambda: asyncio.create_task(self._repeat_task(task, 60 * 60 * 24)),
         )
@@ -647,9 +645,9 @@ class AsyncYouTubeNotifier:
                     data={
                         "hub.mode": mode,
                         "hub.topic": f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}",
-                        "hub.callback": self._config.callback_url,
+                        "hub.callback": self._callback_url,
                         "hub.verify": "sync",
-                        "hub.secret": self._config.password,
+                        "hub.secret": self._password,
                         "hub.lease_seconds": "",
                         "hub.verify_token": "",
                     },
@@ -664,7 +662,7 @@ class AsyncYouTubeNotifier:
 
                 raise HTTPError(
                     f"Failed to {mode} channel: {channel_id}. "
-                    f"The reason might be because {self._config.callback_url} is "
+                    f"The reason might be because {self._callback_url} is "
                     f"inaccessible from the public internet",
                     response.status_code,
                 )
@@ -680,15 +678,15 @@ class AsyncYouTubeNotifier:
         """Gracefully stop the FastAPI server and the notifier.
         If the notifier is not running, this method will do nothing.
         """
-        if not self.is_ready:
+        if not self.is_ready or self._server is None:
             return
 
         self._server.should_exit = True
         self._server = None
 
-        if self._config.using_ngrok:
+        if self._using_ngrok and self._callback_url is not None:
             with suppress(PyngrokNgrokURLError):
-                ngrok.disconnect(self._config.callback_url)
+                ngrok.disconnect(self._callback_url)
 
     async def _on_exit(self) -> None:
         """Perform a task after the notifier is stopped."""
@@ -799,7 +797,7 @@ class AsyncYouTubeNotifier:
         return datetime.strptime(f"{time}+{zone}", "%Y-%m-%dT%H:%M:%S%z")
 
     async def _is_authorized(self, request: Request) -> bool:
-        if not self._config.password:
+        if not self._password:
             return True
 
         x_hub_signature = request.headers.get("X-Hub-Signature")
@@ -808,9 +806,7 @@ class AsyncYouTubeNotifier:
             return False
 
         algorithm, value = x_hub_signature.split("=")
-        hash_obj = hmac.new(
-            self._config.password.encode(), await request.body(), algorithm
-        )
+        hash_obj = hmac.new(self._password.encode(), await request.body(), algorithm)
         return hmac.compare_digest(hash_obj.hexdigest(), value)
 
 
@@ -883,6 +879,10 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
             pass
         finally:
             self._on_exit()
+
+    def _on_exit(self) -> None:
+        """Perform a task after the notifier is stopped."""
+        self.stop()
 
     @contextmanager
     def run_in_background(

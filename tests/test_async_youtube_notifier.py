@@ -127,10 +127,10 @@ xmls = [
 def notifier() -> AsyncYouTubeNotifier:
     """Fixture for AsyncYouTubeNotifier."""
     notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
-    notifier._config.password = ""
+    notifier._password = ""
 
     router = notifier._get_router()
-    notifier._config.app.include_router(router)
+    notifier._app.include_router(router)
 
     return notifier
 
@@ -245,7 +245,7 @@ def test_listener(notifier: AsyncYouTubeNotifier) -> None:
     """Test the upload decorator of the YouTubeNotifier class."""
     notifier._subscribed_ids.update(channel_ids)
 
-    client = TestClient(notifier._config.app)
+    client = TestClient(notifier._app)
     content = xmls[0]
     any_called = False
     upload_called = False
@@ -286,7 +286,7 @@ def test_listener_channel_id(notifier: AsyncYouTubeNotifier) -> None:
     """Test the listener decorator with channel ID."""
     notifier._subscribed_ids.update(channel_ids)
 
-    client = TestClient(notifier._config.app)
+    client = TestClient(notifier._app)
     content = xmls[0]
 
     called = 0
@@ -341,8 +341,8 @@ def test_get_server() -> None:
     port = 8000
     app = FastAPI()
 
-    using_ngrok = notifier._config.using_ngrok
-    notifier._config.using_ngrok = False
+    using_ngrok = notifier._using_ngrok
+    notifier._using_ngrok = False
     notifier._get_server(host=host, port=port, app=app)
 
     app.get("/")(lambda: None)
@@ -350,7 +350,7 @@ def test_get_server() -> None:
     with pytest.raises(ValueError):
         notifier._get_server(host=host, port=port, app=app)
 
-    notifier._config.using_ngrok = using_ngrok
+    notifier._using_ngrok = using_ngrok
 
 
 @respx.mock
@@ -368,7 +368,7 @@ async def test_verify_channel_ids() -> None:
 
 def test_get(notifier: AsyncYouTubeNotifier) -> None:
     """Test the get method of the YouTubeNotifier class."""
-    client = TestClient(notifier._config.app)
+    client = TestClient(notifier._app)
 
     response = client.get(CALLBACK_URL)
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -387,7 +387,7 @@ def test_parse_timestamp(notifier: AsyncYouTubeNotifier) -> None:
 def test_post(notifier: AsyncYouTubeNotifier) -> None:
     """Test the post method of the YouTubeNotifier class."""
     notifier._subscribed_ids.update(channel_ids)
-    client = TestClient(notifier._config.app)
+    client = TestClient(notifier._app)
 
     headers = {"Content-Type": "application/xml"}
     for xml in xmls:
@@ -406,8 +406,8 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
         assert response.status_code == HTTPStatus.NO_CONTENT
         mock_unsubscribe.assert_awaited()
 
-    password = notifier._config.password
-    notifier._config.password = "password"  # noqa: S105
+    password = notifier._password
+    notifier._password = "password"  # noqa: S105
     response = client.post(CALLBACK_URL, headers=headers, content=xmls[0])
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
@@ -418,7 +418,7 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
     )
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    notifier._config.password = password
+    notifier._password = password
 
 
 @pytest.mark.asyncio
