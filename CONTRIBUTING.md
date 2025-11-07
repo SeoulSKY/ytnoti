@@ -44,7 +44,7 @@ uv run ruff check .
 8. Run tests with coverage.
 
 ```bash
-uv run pytest --cov
+uv run pytest --cov --cov-report=term-missing
 ```
 
 9. Update the documentation at `docs/` folder if needed.

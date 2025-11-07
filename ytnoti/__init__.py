@@ -23,9 +23,16 @@ import string
 import time
 import warnings
 from asyncio import Task
-from collections.abc import AsyncIterator, Callable, Coroutine, Iterable, Iterator
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Iterable,
+    Iterator,
+)
 from contextlib import asynccontextmanager, contextmanager, suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from pyexpat import ExpatError
 from threading import Thread
@@ -55,6 +62,7 @@ class AsyncYouTubeNotifier:
     """
 
     _ALL_LISTENER_KEY = "_all"
+    _UPLOAD_EVENT_THRESHOLD = timedelta(seconds=20)
 
     def __init__(
         self,
@@ -426,7 +434,7 @@ class AsyncYouTubeNotifier:
 
     async def _repeat_task(
         self,
-        task: Callable[[], Coroutine[Any, Any, Any]],
+        task: Callable[[], Awaitable[None]],
         interval: float,
         predicate: Callable[[], bool] | None = None,
     ) -> None:
@@ -599,22 +607,15 @@ class AsyncYouTubeNotifier:
             channel_ids = [channel_ids]
 
         if not self._subscribed_ids.issuperset(channel_ids):
+            channel_ids = set(channel_ids)
             raise ValueError(
                 f"No such subscribed channel IDs: "
-                f"{self._subscribed_ids.difference(channel_ids)}"
+                f"{channel_ids.difference(self._subscribed_ids)}"
             )
 
         unsubscribe_ids = self._subscribed_ids.intersection(channel_ids)
 
-        no_server = self.is_ready
-
-        if no_server:
-            self.run_in_background(host=self._config.host, port=self._config.port)
-
         await self._register(unsubscribe_ids, mode="unsubscribe")
-
-        if no_server:
-            self.stop()
 
         self._subscribed_ids.difference_update(unsubscribe_ids)
 
@@ -691,9 +692,6 @@ class AsyncYouTubeNotifier:
 
     async def _on_exit(self) -> None:
         """Perform a task after the notifier is stopped."""
-        if not self._config.using_ngrok:
-            await self.unsubscribe(self._subscribed_ids)
-
         self.stop()
 
     @staticmethod
@@ -733,8 +731,13 @@ class AsyncYouTubeNotifier:
             )
 
             for entry in entries:
+                channel_id = entry["yt:channelId"]
+                if channel_id not in self._subscribed_ids:
+                    await self.unsubscribe(channel_id)
+                    continue
+
                 channel = Channel(
-                    id=entry["yt:channelId"],
+                    id=channel_id,
                     name=entry["author"]["name"],
                     url=entry["author"]["uri"],
                 )
@@ -842,10 +845,12 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         )
 
     def subscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
-        return self._run_coroutine(super().subscribe(channel_ids))
+        self._run_coroutine(super().subscribe(channel_ids))
+        return self
 
     def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
-        return self._run_coroutine(super().unsubscribe(channel_ids))
+        self._run_coroutine(super().unsubscribe(channel_ids))
+        return self
 
     def run(
         self,
@@ -914,14 +919,8 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
                 time.sleep(0.1)
             yield thread
         finally:
-            self._on_exit()
+            self.stop()
             thread.join()
-
-    def _on_exit(self) -> None:
-        if not self._config.using_ngrok:
-            self.unsubscribe(self._subscribed_ids)
-
-        self.stop()
 
     @staticmethod
     def _run_coroutine(coro: Coroutine[Any, Any, T]) -> T:

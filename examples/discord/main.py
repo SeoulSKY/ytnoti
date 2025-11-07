@@ -29,14 +29,14 @@ class MyClient(discord.Client):
             channels = self._listeners[video.channel.id]
             for channel in channels:
                 await channel.send(
-                    f"{video.channel.name} uploaded a [new video]" f"({video.url})"
+                    f"{video.channel.name} uploaded a [new video]({video.url})"
                 )
 
     async def on_ready(self) -> None:
         """Called when the client is ready."""
         print("Logged on as", self.user)
 
-        await self._notifier.serve()
+        await self._notifier.run()
 
     async def on_message(self, message: discord.Message) -> None:
         """Called when a message is received."""

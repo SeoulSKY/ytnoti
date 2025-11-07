@@ -77,7 +77,7 @@ Following is a simple example of how to use `ngrok <https://dashboard.ngrok.com/
 
 
    @notifier.upload()
-   async def listener(video: Video):
+   async def listener(video: Video) -> None:
        print(f"New video from {video.channel.name}: {video.title}")
 
 
@@ -94,7 +94,7 @@ Following is a simple example of how to use your domain to receive push notifica
 
 
    @notifier.upload()
-   async def listener(video: Video):
+   async def listener(video: Video) -> None:
        print(f"New video from {video.channel.name}: {video.title}")
 
 

@@ -52,7 +52,7 @@ notifier = YouTubeNotifier()
 
 
 @notifier.upload()
-async def listener(video: Video):
+async def listener(video: Video) -> None:
     print(f"New video from {video.channel.name}: {video.title}")
 
 
@@ -69,7 +69,7 @@ notifier = YouTubeNotifier(callback_url="https://yourdomain.com")
 
 
 @notifier.upload()
-async def listener(video: Video):
+async def listener(video: Video) -> None:
     print(f"New video from {video.channel.name}: {video.title}")
 
 
