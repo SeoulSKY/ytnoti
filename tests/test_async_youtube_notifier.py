@@ -7,9 +7,9 @@ from unittest.mock import PropertyMock, patch
 
 import pytest
 import respx
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import Response
+from uvicorn import Config
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier, Video
@@ -139,10 +139,9 @@ def notifier() -> AsyncYouTubeNotifier:
 async def test_run() -> None:
     """Test run method."""
     notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
-
     task = asyncio.create_task(notifier.run())
 
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
 
     try:
         assert notifier.is_ready
@@ -241,7 +240,9 @@ async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
         await notifier.unsubscribe(channel_ids)
 
 
-def test_listener(notifier: AsyncYouTubeNotifier) -> None:
+def test_listener(
+    notifier: AsyncYouTubeNotifier,
+) -> None:
     """Test the upload decorator of the YouTubeNotifier class."""
     notifier._subscribed_ids.update(channel_ids)
 
@@ -336,19 +337,16 @@ def test_add_listener() -> None:
 def test_get_server() -> None:
     """Test getting the server of the YouTubeNotifier class."""
     notifier = AsyncYouTubeNotifier()
-
-    host = "0.0.0.0"  # noqa: S104
-    port = 8000
-    app = FastAPI()
+    config = Config(notifier._app)
 
     using_ngrok = notifier._using_ngrok
     notifier._using_ngrok = False
-    notifier._get_server(host=host, port=port, app=app)
+    notifier._get_server(config)
 
-    app.get("/")(lambda: None)
+    notifier._app.get("/")(lambda: None)
 
     with pytest.raises(ValueError):
-        notifier._get_server(host=host, port=port, app=app)
+        notifier._get_server(config)
 
     notifier._using_ngrok = using_ngrok
 
@@ -401,10 +399,10 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
         client.post(CALLBACK_URL, headers=headers, content="<feed/>")
 
     notifier._subscribed_ids.clear()
-    with patch.object(notifier, "unsubscribe") as mock_unsubscribe:
+    with patch.object(notifier, "_request") as mock_request:
         response = client.post(CALLBACK_URL, headers=headers, content=xmls[0])
         assert response.status_code == HTTPStatus.NO_CONTENT
-        mock_unsubscribe.assert_awaited()
+        mock_request.assert_awaited()
 
     password = notifier._password
     notifier._password = "password"  # noqa: S105

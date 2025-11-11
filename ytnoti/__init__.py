@@ -84,13 +84,11 @@ class AsyncYouTubeNotifier:
         self._logger = logging.getLogger(self.__class__.__name__)
 
         self._callback_url = callback_url
-        self._host = ""
-        self._port = -1
-        self._app = FastAPI()
         self._using_ngrok = callback_url is None
         self._password = password or str(
             "".join(secrets.choice(string.ascii_letters) for _ in range(20))
         )
+        self._app = FastAPI()
 
         self._listeners: dict[
             NotificationKind, dict[str, list[NotificationListener]]
@@ -348,39 +346,22 @@ class AsyncYouTubeNotifier:
 
         return router
 
-    def _get_server_config(self, **configs: object) -> Config:
-        """Get the server configuration.
-
-        :param configs: Additional arguments to pass to the server configuration.
-        :return: The server configuration.
-        """
-        return Config(self._app, self._host, self._port, **configs)  # ty: ignore[invalid-argument-type]
-
     def _get_server(
         self,
-        *,
-        host: str,
-        port: int,
-        app: FastAPI | None = None,
-        **configs: object,
+        config: Config,
     ) -> Server:
         """Create a server instance to receive push notifications.
 
-        :param host: The host to run the server on.
-        :param port: The port to run the server on.
-        :param app: The FastAPI app to use. If not provided, a new app will be created.
-        :param log_level: The log level to use for the uvicorn server.
-        :param configs: Additional arguments to pass to the server configuration.
+        :param app: The FastAPI app instance to use.
+        :param config: The uvicorn Config instance to use.
         :return: The server instance.
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
         """
-        self._host = host
-        self._port = port
-        self._app = app or self._app
+        config.app = self._app
 
         if self._using_ngrok:
-            self._callback_url = ngrok.connect(str(port)).public_url
+            self._callback_url = ngrok.connect(str(config.host)).public_url
 
         self._logger.info("Callback URL: %s", self._callback_url)
 
@@ -413,13 +394,13 @@ class AsyncYouTubeNotifier:
 
             self._server = server
 
-            await self._register(self._subscribed_ids)
+            await self._request(self._subscribed_ids)
 
         async def task() -> None:  # pragma: no cover
             try:
-                await self._register(self._subscribed_ids)
-            except RuntimeError:
-                self._logger.exception("")
+                await self._request(self._subscribed_ids)
+            except Exception:
+                self._logger.exception("Failed to extend channel subscriptions")
 
         self._app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
         self._app.add_event_handler(
@@ -427,7 +408,7 @@ class AsyncYouTubeNotifier:
             lambda: asyncio.create_task(self._repeat_task(task, 60 * 60 * 24)),
         )
 
-        server = Server(self._get_server_config(**configs))
+        server = Server(config)
         return server
 
     async def _repeat_task(
@@ -503,9 +484,16 @@ class AsyncYouTubeNotifier:
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
         """
-        server = self._get_server(
-            host=host, port=port, app=app, log_level=log_level, **configs
-        )
+        if app is not None:
+            self._app = app
+
+        configs["host"] = host
+        configs["port"] = port
+        configs["log_level"] = log_level
+        configs["app"] = self._app
+        config = Config(**configs)  # ty: ignore[invalid-argument-type]
+
+        server = self._get_server(config)
 
         old_signal_handler = signal.getsignal(signal.SIGINT)
 
@@ -588,7 +576,7 @@ class AsyncYouTubeNotifier:
             return self
 
         not_subscribed = set(channel_ids).difference(self._subscribed_ids)
-        await self._register(not_subscribed)
+        await self._request(not_subscribed)
 
         self._subscribed_ids.update(not_subscribed)
 
@@ -613,13 +601,13 @@ class AsyncYouTubeNotifier:
 
         unsubscribe_ids = self._subscribed_ids.intersection(channel_ids)
 
-        await self._register(unsubscribe_ids, mode="unsubscribe")
+        await self._request(unsubscribe_ids, mode="unsubscribe")
 
         self._subscribed_ids.difference_update(unsubscribe_ids)
 
         return self
 
-    async def _register(
+    async def _request(
         self,
         channel_ids: Iterable[str],
         *,
@@ -731,7 +719,7 @@ class AsyncYouTubeNotifier:
             for entry in entries:
                 channel_id = entry["yt:channelId"]
                 if channel_id not in self._subscribed_ids:
-                    await self.unsubscribe(channel_id)
+                    await self._request([channel_id], mode="unsubscribe")
                     continue
 
                 channel = Channel(
@@ -869,9 +857,16 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
         """
-        server = self._get_server(
-            host=host, port=port, app=app, log_level=log_level, **configs
-        )
+        if app is not None:
+            self._app = app
+
+        configs["host"] = host
+        configs["port"] = port
+        configs["app"] = self._app
+        configs["log_level"] = log_level
+        config = Config(**configs)  # ty: ignore[invalid-argument-type]
+
+        server = self._get_server(config)
 
         try:
             server.run()
