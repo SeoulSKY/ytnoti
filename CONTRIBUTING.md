@@ -15,7 +15,7 @@ We want to make contributing to this project as easy and transparent as possible
 Pull requests are the best way to propose changes to the codebase (we use [Github Flow](https://guides.github.com/introduction/flow/index.html)). We actively welcome your pull requests:
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), a modern Python package and project manager.  
-2. Install Python 3.11.14.
+2. Install Python `3.11`.
 
 ```bash
 uv python install 3.11
@@ -40,15 +40,20 @@ uv sync --extra dev --extra docs
 uv run ruff check .
 ```
 
-7. Write tests for your code at `tests/` folder. Try to maintain high test coverage.
-8. Run tests with coverage.
+1. Write tests for your code at `tests/` folder.
+2. Run tests with coverage. Check if the code coverage is 100%.
 
 ```bash
 uv run pytest --cov --cov-report=term-missing
 ```
 
-9. Update the documentation at `docs/` folder if needed.
-10. Build the documentation to preview.
+9. Check if the minimum required version of Python with the updated code is `3.11`.
+```bash
+uv run vermin ytnoti
+```
+
+10. Update the documentation at `docs/` folder if needed.
+11. Build the documentation to preview.
 
 ```bash
 uv run sphinx-build -M html docs docs/build/
