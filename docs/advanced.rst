@@ -43,7 +43,7 @@ However, you can pass your own FastAPI instance when you run (Async)YouTubeNotif
         return {"message": "Hello World"}
 
 
-    notifier = YouTubeNotifier()
+    notifier = YouTubeNotifier(app=app)
 
     @notifier.upload()
     async def listener(video):
@@ -51,7 +51,7 @@ However, you can pass your own FastAPI instance when you run (Async)YouTubeNotif
 
 
     notifier.subscribe("UCuFFtHWoLl5fauMMD5Ww2jA")  # Channel ID of CBC News
-    notifier.run(app=app)
+    notifier.run()
 
 
 Configuring uvicorn
@@ -59,13 +59,13 @@ Configuring uvicorn
 
 ``(Async)YouTubeNotifier`` uses ``uvicorn`` to run the FastAPI server.
 The library uses ``host`` 0.0.0.0 and ``port`` 8000 by default.
-You can override them by passing them to the run (or serve) method.
+You can override them by passing them to the run method.
 
 .. code:: python
 
     notifier.run(host="123.456.789.012", port=5000)
 
-For any keyword arguments that are passed to run (or serve) method,
+For any keyword arguments that are passed to run method,
 it will directly be passed to the Config instance of ``uvicorn``.
 See their `documentation <https://www.uvicorn.org/#usage>`_ for available options.
 
