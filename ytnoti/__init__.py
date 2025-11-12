@@ -42,7 +42,7 @@ from urllib.parse import urlparse
 import xmltodict
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
-from httpx import AsyncClient
+from httpx import AsyncClient, ConnectError
 from pyngrok import ngrok
 from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
@@ -69,6 +69,7 @@ class AsyncYouTubeNotifier:
         callback_url: str | None = None,
         password: str | None = None,
         video_history: VideoHistory | None = None,
+        app: FastAPI | None = None,
     ) -> None:
         """Set up the YouTubeNotifier instance.
 
@@ -80,15 +81,20 @@ class AsyncYouTubeNotifier:
             notifications.
             If not provided,
             a new instance of InMemoryVideoHistory will be created and used.
+        :param app: The FastAPI app instance to use. If not provided, a new instance
+            will be created.
         """
+        if app is not None:
+            self._verify_app(app=app, callback_url=callback_url)
+
         self._logger = logging.getLogger(self.__class__.__name__)
 
-        self._callback_url = callback_url
-        self._using_ngrok = callback_url is None
+        self._callback_url: str | None = callback_url
+        self._is_using_ngrok = callback_url is None
         self._password = password or str(
             "".join(secrets.choice(string.ascii_letters) for _ in range(20))
         )
-        self._app = FastAPI()
+        self._app = app or FastAPI()
 
         self._listeners: dict[
             NotificationKind, dict[str, list[NotificationListener]]
@@ -96,6 +102,7 @@ class AsyncYouTubeNotifier:
         self._subscribed_ids: set[str] = set()
         self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
+        self._server_ready_event: asyncio.Event = asyncio.Event()
         self._lock = asyncio.Lock()
 
     @property
@@ -113,7 +120,7 @@ class AsyncYouTubeNotifier:
 
         :return: True if the notifier is ready, False otherwise.
         """
-        return self._server is not None
+        return self._server_ready_event.is_set()
 
     def listener(  # pragma: no cover
         self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
@@ -334,102 +341,133 @@ class AsyncYouTubeNotifier:
 
         return listeners
 
-    def _get_router(self) -> APIRouter:
-        """Get the FastAPI router for the notifier.
-
-        :return: The FastAPI router.
+    @staticmethod
+    def _get_endpoint(*, callback_url: str | None) -> str:
+        """Get the endpoint path from the callback URL.
+        :param callback_url: The callback URL to use to determine the notifier's
+            endpoint.
+        :return: The endpoint path.
         """
+        return "/" if callback_url is None else urlparse(callback_url).path or "/"
+
+    @staticmethod
+    def _verify_app(*, app: FastAPI, callback_url: str | None) -> None:
+        """Verify if the given app instance has a route that conflicts with
+            the notifier's routes.
+
+        :param app: The FastAPI app instance to verify.
+        :param callback_url: The callback URL to use to determine the notifier's
+            endpoint.
+        """
+        endpoint = AsyncYouTubeNotifier._get_endpoint(callback_url=callback_url)
+        for route in app.routes:
+            if isinstance(route, (APIRoute, Route)) and route.path == endpoint:
+                raise ValueError(
+                    f"Endpoint {endpoint} is reserved for {__package__} "
+                    "so it cannot be used by the app"
+                )
+
+    def _set_app_routes(self, *, app: FastAPI, callback_url: str) -> None:
+        """Set the routes for the FastAPI app instance.
+        :param app: The FastAPI app instance to set the routes for.
+        :param callback_url: The callback URL to use to determine the notifier's
+            endpoint.
+        """
+        endpoint = self._get_endpoint(callback_url=callback_url)
+
         router = APIRouter()
-        endpoint = urlparse(self._callback_url).path or "/"
         router.add_api_route(endpoint, self._get, methods=["HEAD", "GET"])
         router.add_api_route(endpoint, self._post, methods=["POST"])
 
-        return router
+        app.include_router(router)
 
-    def _get_server(
-        self,
-        config: Config,
-    ) -> Server:
-        """Create a server instance to receive push notifications.
-
-        :param app: The FastAPI app instance to use.
-        :param config: The uvicorn Config instance to use.
-        :return: The server instance.
-        :raises ValueError: If the given app instance has a route that conflicts with
-            the notifier's routes.
+    def _add_event_handlers(self, *, app: FastAPI, callback_url: str) -> None:
+        """Add the event handlers for the FastAPI app instance.
+        :param app: The FastAPI app instance to add the event handlers for.
+        :param callback_url: The callback URL for the notifier.
         """
-        config.app = self._app
+        app.add_event_handler(
+            "startup",
+            lambda: asyncio.create_task(self._on_startup(callback_url=callback_url)),
+        )
 
-        if self._using_ngrok:
-            self._callback_url = ngrok.connect(str(config.host)).public_url
+    async def _on_startup(
+        self, *, callback_url: str, predicate: Callable[[], bool] | None = None
+    ) -> None:
+        """Perform a task after the notifier is started.
+        :param callback_url: The callback URL for testing if the server is available.
+        :param predicate: An optional predicate function that returns True to continue
+            waiting for the server to be available.
+        """
+        while not predicate or predicate():
+            await asyncio.sleep(0.1)
 
-        self._logger.info("Callback URL: %s", self._callback_url)
+            try:
+                async with AsyncClient() as client:
+                    response = await client.head(
+                        callback_url, params={"hub.challenge": "1"}
+                    )
+                    if response.status_code == HTTPStatus.OK:
+                        break
+            except ConnectError:
+                continue
 
-        endpoint = urlparse(self._callback_url).path or "/"
+        self._server_ready_event.set()
+        await self._request(self._subscribed_ids)
 
-        if any(
-            isinstance(route, APIRoute | Route) and route.path == endpoint
-            for route in self._app.routes
-        ):
-            raise ValueError(
-                f"Endpoint {endpoint} is reserved for {__package__} "
-                f"so it cannot be used by the app"
-            )
-
-        self._app.include_router(self._get_router())
-
-        async def on_ready() -> None:
-            while True:
-                await asyncio.sleep(0.1)
-
-                try:
-                    async with AsyncClient() as client:
-                        response = await client.head(
-                            self._callback_url, params={"hub.challenge": "1"}
-                        )
-                        if response.status_code == HTTPStatus.OK:
-                            break
-                except ConnectionError:  # pragma: no cover
-                    continue
-
-            self._server = server
-
-            await self._request(self._subscribed_ids)
-
-        async def task() -> None:  # pragma: no cover
+        async def task() -> None:
             try:
                 await self._request(self._subscribed_ids)
             except Exception:
                 self._logger.exception("Failed to extend channel subscriptions")
+                raise
 
-        self._app.add_event_handler("startup", lambda: asyncio.create_task(on_ready()))
-        self._app.add_event_handler(
-            "startup",
-            lambda: asyncio.create_task(self._repeat_task(task, 60 * 60 * 24)),
-        )
+        await self._repeat_task(task, timedelta(days=1))
 
-        server = Server(config)
-        return server
+    def _setup_notifier(
+        self,
+        *,
+        app: FastAPI,
+        port: int,
+        callback_url: str | None,
+    ) -> None:
+        """Set up the notifier by configuring the FastAPI app instance.
+        :param app: The FastAPI app instance to set up the notifier for.
+        :param port: The port to use for the ngrok tunnel.
+        :param callback_url: The callback URL or None if ngrok should be used.
+        """
+        if callback_url is None:
+            callback_url = ngrok.connect(str(port)).public_url
+
+            if callback_url is None:
+                raise RuntimeError("Failed to create ngrok tunnel")
+
+        self._logger.info("Callback URL: %s", callback_url)
+
+        self._set_app_routes(app=app, callback_url=callback_url)
+        self._add_event_handlers(app=app, callback_url=callback_url)
+        self._callback_url = callback_url
 
     async def _repeat_task(
         self,
         task: Callable[[], Awaitable[None]],
-        interval: float,
+        interval: timedelta,
         predicate: Callable[[], bool] | None = None,
     ) -> None:
-        """Repeatedly run a task.
+        """Repeatedly run a task every interval, even if the task fails.
 
-        :param task: The coroutine to repeat
+        :param task: The function to repeat
         :param interval: The interval in seconds to repeat the task
         :param predicate: An optional predicate function
             that returns True to continue
         """
         while not predicate or predicate():
-            await asyncio.sleep(interval)
             try:
                 await task()
             except Exception:
                 self._logger.exception("Failed to repeat task")
+
+            await asyncio.sleep(interval.total_seconds())
 
     async def serve(
         self,
@@ -484,32 +522,41 @@ class AsyncYouTubeNotifier:
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
         """
-        if app is not None:
+        if app is not None:  # pragma: no cover
+            warnings.warn(
+                "Passing an app instance to run() is deprecated and will be removed in "
+                "version 4.0.0. Pass an app instance to the constructor instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+            self._verify_app(app=app, callback_url=self._callback_url)
             self._app = app
 
-        configs["host"] = host
-        configs["port"] = port
-        configs["log_level"] = log_level
-        configs["app"] = self._app
-        config = Config(**configs)  # ty: ignore[invalid-argument-type]
+        config = Config(
+            app=self._app,
+            host=host,
+            port=port,
+            log_level=log_level,
+            **configs,  # ty: ignore[invalid-argument-type]
+        )
+        self._server = Server(config=config)
 
-        server = self._get_server(config)
+        self._setup_notifier(app=self._app, port=port, callback_url=self._callback_url)
 
         old_signal_handler = signal.getsignal(signal.SIGINT)
 
-        async def signal_handler() -> None:  # pragma: no cover
-            await self._on_exit()
+        def signal_handler() -> None:  # pragma: no cover
+            self._on_exit()
 
             signal.signal(signal.SIGINT, old_signal_handler)
 
-        signal.signal(
-            signal.SIGINT, lambda _sig, _frame: asyncio.create_task(signal_handler())
-        )
+        signal.signal(signal.SIGINT, lambda _sig, _frame: signal_handler())
 
         try:
-            await server.serve()
+            await self._server.serve()
         except KeyboardInterrupt:  # pragma: no cover
-            await self._on_exit()
+            self._on_exit()
 
     @asynccontextmanager
     async def run_in_background(
@@ -533,11 +580,10 @@ class AsyncYouTubeNotifier:
             self.run(host=host, port=port, app=app, log_level=log_level, **configs)
         )
         try:
-            while not self.is_ready:  # noqa: ASYNC110
-                await asyncio.sleep(0.1)
+            await self._server_ready_event.wait()
             yield task
         finally:
-            await self._on_exit()
+            self._on_exit()
             await task
 
     @staticmethod
@@ -672,11 +718,11 @@ class AsyncYouTubeNotifier:
         self._server.should_exit = True
         self._server = None
 
-        if self._using_ngrok and self._callback_url is not None:
+        if self._is_using_ngrok and self._callback_url is not None:
             with suppress(PyngrokNgrokURLError):
                 ngrok.disconnect(self._callback_url)
 
-    async def _on_exit(self) -> None:
+    def _on_exit(self) -> None:
         """Perform a task after the notifier is stopped."""
         self.stop()
 
@@ -809,6 +855,7 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         callback_url: str | None = None,
         password: str | None = None,
         video_history: VideoHistory | None = None,
+        app: FastAPI | None = None,
     ) -> None:
         """Create a new YouTubeNotifier instance.
 
@@ -820,12 +867,15 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
             notifications.
             If not provided, a new instance of InMemoryVideoHistory will be created and
             used.
+        :param app: The FastAPI app instance to use. If not provided, a new instance
+            will be created.
         """
         self._logger = logging.getLogger(self.__class__.__name__)
         super().__init__(
             callback_url=callback_url,
             password=password,
             video_history=video_history,
+            app=app,
         )
 
     def subscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
@@ -857,19 +907,29 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         :raises ValueError: If the given app instance has a route that conflicts with
             the notifier's routes.
         """
-        if app is not None:
+        if app is not None:  # pragma: no cover
+            warnings.warn(
+                "Passing an app instance to run() is deprecated and will be removed in "
+                "version 4.0.0. Pass an app instance to the constructor instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+            self._verify_app(app=app, callback_url=self._callback_url)
             self._app = app
 
-        configs["host"] = host
-        configs["port"] = port
-        configs["app"] = self._app
-        configs["log_level"] = log_level
-        config = Config(**configs)  # ty: ignore[invalid-argument-type]
-
-        server = self._get_server(config)
+        config = Config(
+            app=self._app,
+            host=host,
+            port=port,
+            log_level=log_level,
+            **configs,  # ty: ignore[invalid-argument-type]
+        )
+        self._server = Server(config=config)
+        self._setup_notifier(app=self._app, port=port, callback_url=self._callback_url)
 
         try:
-            server.run()
+            self._server.run()
         except KeyboardInterrupt:  # pragma: no cover
             pass
         finally:

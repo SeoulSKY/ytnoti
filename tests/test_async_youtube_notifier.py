@@ -1,15 +1,15 @@
 """Contains the tests for the class AsyncYouTubeNotifier."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import PropertyMock, patch
 
 import pytest
 import respx
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import Response
-from uvicorn import Config
+from httpx import ConnectError, Response
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier, Video
@@ -126,11 +126,11 @@ xmls = [
 @pytest.fixture
 def notifier() -> AsyncYouTubeNotifier:
     """Fixture for AsyncYouTubeNotifier."""
-    notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
+    app = FastAPI()
+    notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL, app=app)
     notifier._password = ""
 
-    router = notifier._get_router()
-    notifier._app.include_router(router)
+    notifier._set_app_routes(app=app, callback_url=CALLBACK_URL)
 
     return notifier
 
@@ -173,7 +173,7 @@ def test_callback_url() -> None:
 @respx.mock
 @pytest.mark.asyncio
 async def test_subscribe() -> None:
-    """Test the subscribe method of the YouTubeNotifier class."""
+    """Test the subscribe method of the AsyncYouTubeNotifier class."""
     notifier = AsyncYouTubeNotifier()
 
     respx.head(CHANNEL_ID_VERIFICATION_URL)
@@ -205,7 +205,7 @@ async def test_subscribe() -> None:
 @respx.mock
 @pytest.mark.asyncio
 async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
-    """Test the unsubscribe method of the YouTubeNotifier class."""
+    """Test the unsubscribe method of the AsyncYouTubeNotifier class."""
     respx.head(CHANNEL_ID_VERIFICATION_URL)
     route = respx.post(REGISTRATION_URL)
     route.mock(Response(HTTPStatus.NO_CONTENT))
@@ -243,7 +243,7 @@ async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
 def test_listener(
     notifier: AsyncYouTubeNotifier,
 ) -> None:
-    """Test the upload decorator of the YouTubeNotifier class."""
+    """Test the upload decorator of the AsyncYouTubeNotifier class."""
     notifier._subscribed_ids.update(channel_ids)
 
     client = TestClient(notifier._app)
@@ -312,7 +312,7 @@ def test_listener_channel_id(notifier: AsyncYouTubeNotifier) -> None:
 
 
 def test_add_listener() -> None:
-    """Test adding listeners to the YouTubeNotifier class."""
+    """Test adding listeners to the AsyncYouTubeNotifier class."""
     notifier = AsyncYouTubeNotifier()
 
     async def listener1(_video: Video) -> None:
@@ -334,21 +334,60 @@ def test_add_listener() -> None:
         notifier.add_any_listener(listener1, channel_ids=notifier._ALL_LISTENER_KEY)
 
 
-def test_get_server() -> None:
-    """Test getting the server of the YouTubeNotifier class."""
-    notifier = AsyncYouTubeNotifier()
-    config = Config(notifier._app)
+def test_endpoint() -> None:
+    """Test setting up the notifier."""
+    assert (
+        AsyncYouTubeNotifier._get_endpoint(callback_url="http://localhost:8000") == "/"
+    )
+    assert (
+        AsyncYouTubeNotifier._get_endpoint(callback_url="http://localhost:8000/test")
+        == "/test"
+    )
 
-    using_ngrok = notifier._using_ngrok
-    notifier._using_ngrok = False
-    notifier._get_server(config)
 
-    notifier._app.get("/")(lambda: None)
+def test_verify_app() -> None:
+    """Test setting up the notifier."""
+    app = FastAPI()
+
+    AsyncYouTubeNotifier._verify_app(app=app, callback_url=CALLBACK_URL)
+
+    @app.get("/")
+    async def root() -> None:
+        pass
 
     with pytest.raises(ValueError):
-        notifier._get_server(config)
+        AsyncYouTubeNotifier._verify_app(app=app, callback_url=CALLBACK_URL)
 
-    notifier._using_ngrok = using_ngrok
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_on_start(notifier: AsyncYouTubeNotifier) -> None:
+    """Test the on_start event handler of the AsyncYouTubeNotifier class."""
+    route = respx.head(CALLBACK_URL)
+
+    route.mock(Response(HTTPStatus.OK))
+
+    with patch.object(notifier, "_repeat_task"):
+        await notifier._on_startup(callback_url=CALLBACK_URL)
+        assert notifier._server_ready_event.is_set()
+
+    route.mock(side_effect=ConnectError("Connection error"))
+
+    with patch.object(notifier, "_repeat_task"):
+        called = 0
+
+        def predicate() -> bool:
+            nonlocal called
+            called += 1
+
+            if called >= 3:
+                route.mock(Response(HTTPStatus.OK))
+                return True
+
+            return False
+
+        await notifier._on_startup(callback_url=CALLBACK_URL, predicate=predicate)
+        assert notifier._server_ready_event.is_set()
 
 
 @respx.mock
@@ -365,7 +404,7 @@ async def test_verify_channel_ids() -> None:
 
 
 def test_get(notifier: AsyncYouTubeNotifier) -> None:
-    """Test the get method of the YouTubeNotifier class."""
+    """Test the get method of the AsyncYouTubeNotifier class."""
     client = TestClient(notifier._app)
 
     response = client.get(CALLBACK_URL)
@@ -383,7 +422,7 @@ def test_parse_timestamp(notifier: AsyncYouTubeNotifier) -> None:
 
 
 def test_post(notifier: AsyncYouTubeNotifier) -> None:
-    """Test the post method of the YouTubeNotifier class."""
+    """Test the post method of the AsyncYouTubeNotifier class."""
     notifier._subscribed_ids.update(channel_ids)
     client = TestClient(notifier._app)
 
@@ -421,7 +460,7 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
 
 @pytest.mark.asyncio
 async def test_repeat_task(notifier: AsyncYouTubeNotifier) -> None:
-    """Test repeat method of the YouTubeNotifier class."""
+    """Test repeat method of the AsyncYouTubeNotifier class."""
     timeout = 2
     started = datetime.now(UTC)
 
@@ -432,7 +471,9 @@ async def test_repeat_task(notifier: AsyncYouTubeNotifier) -> None:
         called += 1
 
     await notifier._repeat_task(
-        task, 1, lambda: (datetime.now(UTC) - started).total_seconds() < timeout
+        task,
+        timedelta(seconds=1),
+        lambda: (datetime.now(UTC) - started).total_seconds() < timeout,
     )
 
     assert timeout - 1 <= called <= timeout
@@ -444,6 +485,8 @@ async def test_repeat_task(notifier: AsyncYouTubeNotifier) -> None:
         called += 1
         raise RuntimeError("Test exception")
 
-    await notifier._repeat_task(task_exception, 0.1, lambda: called < 3)
+    await notifier._repeat_task(
+        task_exception, timedelta(seconds=0.1), lambda: called < 3
+    )
 
     assert called == 3

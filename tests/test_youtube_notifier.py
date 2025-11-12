@@ -5,6 +5,7 @@ from threading import Thread
 from unittest.mock import patch
 
 import pytest
+from fastapi import FastAPI
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier, YouTubeNotifier
@@ -116,11 +117,11 @@ xmls = [
 @pytest.fixture
 def notifier() -> YouTubeNotifier:
     """Fixture for YouTubeNotifier."""
-    notifier = YouTubeNotifier(callback_url=CALLBACK_URL)
+    app = FastAPI()
+    notifier = YouTubeNotifier(app=app, callback_url=CALLBACK_URL)
     notifier._password = ""
 
-    router = notifier._get_router()
-    notifier._app.include_router(router)
+    notifier._set_app_routes(app=app, callback_url=CALLBACK_URL)
 
     return notifier
 
