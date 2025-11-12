@@ -12,6 +12,8 @@
     <a href="https://pypi.org/project/ytnoti"><img src="https://img.shields.io/pypi/v/ytnoti.svg?color=brightgreen&logo=pypi&logoColor=yellow" alt="PyPI version"></a>
     <img src="https://img.shields.io/pepy/dt/ytnoti">
     <img src="https://img.shields.io/github/license/SeoulSKY/ytnoti">
+</div>
+<div align="center">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/ruff.yml/badge.svg">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/pytest.yml/badge.svg">
     <a href="https://codecov.io/github/SeoulSKY/ytnoti">
