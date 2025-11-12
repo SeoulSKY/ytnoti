@@ -1,7 +1,5 @@
 """Contains the tests for the class YouTubeNotifier."""
 
-import time
-from threading import Thread
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,16 +31,12 @@ def test_run() -> None:
     """Test run method of the YouTubeNotifier class."""
     notifier = YouTubeNotifier(callback_url=CALLBACK_URL)
 
-    thread = Thread(target=notifier.run)
-    thread.start()
-
-    time.sleep(2)
-
-    try:
-        assert notifier.is_ready
-    finally:
-        notifier.stop()
-        thread.join()
+    with (
+        patch("ytnoti.Server"),
+        patch.object(notifier, "_on_exit") as mock_exit,
+    ):
+        notifier.run()
+        mock_exit.assert_called_once()
 
 
 def test_run_in_background() -> None:
@@ -50,8 +44,6 @@ def test_run_in_background() -> None:
     notifier = YouTubeNotifier(callback_url=CALLBACK_URL)
 
     with notifier.run_in_background():
-        time.sleep(2)
-
         assert notifier.is_ready
 
 

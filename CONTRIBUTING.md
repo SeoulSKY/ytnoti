@@ -15,16 +15,16 @@ We want to make contributing to this project as easy and transparent as possible
 Pull requests are the best way to propose changes to the codebase (we use [Github Flow](https://guides.github.com/introduction/flow/index.html)). We actively welcome your pull requests:
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), a modern Python package and project manager.  
-2. Install the latest stable version of Python (`3.13.7` as of writing).
+2. Install Python 3.11.14.
 
 ```bash
-uv python install 3.13.7
+uv python install 3.11
 ```
 
 3. Pin the installed python version to the project.
 
 ```bash
-uv python pin 3.13.7
+uv python pin 3.11
 ```
 
 4. Install and lock the development dependencies.

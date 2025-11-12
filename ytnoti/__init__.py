@@ -20,6 +20,7 @@ import logging
 import secrets
 import signal
 import string
+import sys
 import warnings
 from asyncio import Task
 from collections.abc import (
@@ -53,6 +54,11 @@ from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
 from ytnoti.models.video import Channel, Timestamp, Video
 from ytnoti.types import NotificationListener, T
 
+if sys.version_info >= (3, 12):  # pragma: no cover
+    from typing import override  # novm
+else:
+    from typing_extensions import override
+
 
 class AsyncYouTubeNotifier:
     """A class that encapsulates the functionality for subscribing to YouTube
@@ -62,6 +68,7 @@ class AsyncYouTubeNotifier:
     _ALL_LISTENER_KEY = "_all"
     _UPLOAD_EVENT_THRESHOLD = timedelta(seconds=20)
 
+    @override
     def __init__(
         self,
         *,
@@ -752,6 +759,7 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
     channels and receiving push notifications.
     """
 
+    @override
     def __init__(
         self,
         *,
@@ -781,14 +789,17 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
             app=app,
         )
 
-    def subscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
+    @override
+    def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
         self._run_coroutine(super().subscribe(channel_ids))
         return self
 
-    def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:  # noqa: D102
+    @override
+    def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:
         self._run_coroutine(super().unsubscribe(channel_ids))
         return self
 
+    @override
     def run(
         self,
         *,
@@ -838,6 +849,7 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         finally:
             self._on_exit()
 
+    @override
     @contextmanager
     def run_in_background(
         self,
