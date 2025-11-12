@@ -12,7 +12,7 @@
 ytnoti
 -------
 
-.. image:: https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue?logo=python
+.. image:: https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?logo=python
     :target: https://www.python.org/downloads/release/python-3110/
     :alt: Python version
 
