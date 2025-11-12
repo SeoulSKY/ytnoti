@@ -416,11 +416,7 @@ class AsyncYouTubeNotifier:
         await self._request(self._subscribed_ids)
 
         async def task() -> None:
-            try:
-                await self._request(self._subscribed_ids)
-            except Exception:
-                self._logger.exception("Failed to extend channel subscriptions")
-                raise
+            await self._request(self._subscribed_ids)
 
         await self._repeat_task(task, timedelta(days=1))
 
@@ -442,11 +438,12 @@ class AsyncYouTubeNotifier:
             if callback_url is None:
                 raise RuntimeError("Failed to create ngrok tunnel")
 
+            self._callback_url = callback_url
+
         self._logger.info("Callback URL: %s", callback_url)
 
         self._set_app_routes(app=app, callback_url=callback_url)
         self._add_event_handlers(app=app, callback_url=callback_url)
-        self._callback_url = callback_url
 
     async def _repeat_task(
         self,
@@ -556,6 +553,8 @@ class AsyncYouTubeNotifier:
         try:
             await self._server.serve()
         except KeyboardInterrupt:  # pragma: no cover
+            pass
+        finally:
             self._on_exit()
 
     @asynccontextmanager
@@ -688,7 +687,7 @@ class AsyncYouTubeNotifier:
                     headers={"Content-type": "application/x-www-form-urlencoded"},
                 )
 
-            if response.status_code == HTTPStatus.CONFLICT:  # pragma: no cover
+            if response.status_code == HTTPStatus.CONFLICT:
                 if not self.is_ready:
                     raise ConnectionError(
                         f"Cannot {mode} while the server is not ready"
@@ -701,7 +700,7 @@ class AsyncYouTubeNotifier:
                     response.status_code,
                 )
 
-            if response.status_code != HTTPStatus.NO_CONTENT:  # pragma: no cover
+            if response.status_code != HTTPStatus.NO_CONTENT:
                 raise HTTPError(
                     f"Failed to {mode} channel: {channel_id}", response.status_code
                 )
@@ -709,7 +708,7 @@ class AsyncYouTubeNotifier:
             self._logger.info("Successfully %sd channel: %s", mode, channel_id)
 
     def stop(self) -> None:
-        """Gracefully stop the FastAPI server and the notifier.
+        """Gracefully stop the notifier and ngrok (if used).
         If the notifier is not running, this method will do nothing.
         """
         if not self.is_ready or self._server is None:

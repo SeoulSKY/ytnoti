@@ -13,6 +13,7 @@ from httpx import ConnectError, Response
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier, Video
+from ytnoti.errors import HTTPError
 
 channel_ids = [
     "UCPF-oYb2-xN5FbCXy0167Gg",
@@ -23,7 +24,7 @@ channel_ids = [
 channel_id = channel_ids[0]
 
 CHANNEL_ID_VERIFICATION_URL = "https://www.youtube.com/feeds/videos.xml"
-REGISTRATION_URL = "https://pubsubhubbub.appspot.com"
+REQUEST_URL = "https://pubsubhubbub.appspot.com"
 
 # ruff: noqa: E501 ERA001
 
@@ -177,7 +178,7 @@ async def test_subscribe() -> None:
     notifier = AsyncYouTubeNotifier()
 
     respx.head(CHANNEL_ID_VERIFICATION_URL)
-    route = respx.post(REGISTRATION_URL)
+    route = respx.post(REQUEST_URL)
     route.mock(Response(HTTPStatus.NO_CONTENT))
 
     await notifier.subscribe(channel_ids)
@@ -207,7 +208,7 @@ async def test_subscribe() -> None:
 async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
     """Test the unsubscribe method of the AsyncYouTubeNotifier class."""
     respx.head(CHANNEL_ID_VERIFICATION_URL)
-    route = respx.post(REGISTRATION_URL)
+    route = respx.post(REQUEST_URL)
     route.mock(Response(HTTPStatus.NO_CONTENT))
 
     type(notifier).is_ready = PropertyMock(return_value=True)
@@ -361,7 +362,7 @@ def test_verify_app() -> None:
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_on_start(notifier: AsyncYouTubeNotifier) -> None:
+async def test_on_startup(notifier: AsyncYouTubeNotifier) -> None:
     """Test the on_start event handler of the AsyncYouTubeNotifier class."""
     route = respx.head(CALLBACK_URL)
 
@@ -371,23 +372,53 @@ async def test_on_start(notifier: AsyncYouTubeNotifier) -> None:
         await notifier._on_startup(callback_url=CALLBACK_URL)
         assert notifier._server_ready_event.is_set()
 
-    route.mock(side_effect=ConnectError("Connection error"))
+        route.mock(side_effect=ConnectError)
 
-    with patch.object(notifier, "_repeat_task"):
         called = 0
 
         def predicate() -> bool:
             nonlocal called
-            called += 1
 
             if called >= 3:
                 route.mock(Response(HTTPStatus.OK))
-                return True
+                return False
 
-            return False
+            called += 1
+            return True
 
         await notifier._on_startup(callback_url=CALLBACK_URL, predicate=predicate)
         assert notifier._server_ready_event.is_set()
+
+
+def test_setup_notifier(notifier: AsyncYouTubeNotifier) -> None:
+    """Test setting up the notifier."""
+    with patch("pyngrok.ngrok.connect") as mock_connect:
+        mock_connect.return_value.public_url = "test"
+
+        notifier._setup_notifier(app=notifier._app, port=8000, callback_url=None)
+        assert notifier._callback_url == "test"
+
+        mock_connect.return_value.public_url = None
+
+        with pytest.raises(RuntimeError):
+            notifier._setup_notifier(app=notifier._app, port=8000, callback_url=None)
+
+
+def test_stop(notifier: AsyncYouTubeNotifier) -> None:
+    """Test stopping the notifier."""
+    type(notifier).is_ready = PropertyMock(return_value=True)
+    notifier._is_using_ngrok = True
+
+    with (
+        patch.object(notifier, "_server") as mock_server,
+        patch("pyngrok.ngrok.disconnect") as mock_disconnect,
+    ):
+        notifier.stop()
+
+        assert mock_server.should_exit
+        assert notifier._server is None
+
+        mock_disconnect.assert_called_once_with(notifier._callback_url)
 
 
 @respx.mock
@@ -419,6 +450,29 @@ def test_parse_timestamp(notifier: AsyncYouTubeNotifier) -> None:
     timestamp = "2015-04-01T19:05:24.552394234+00:00"
     parsed_timestamp = notifier._parse_timestamp(timestamp)
     assert parsed_timestamp == datetime(2015, 4, 1, 19, 5, 24, tzinfo=UTC)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_request(notifier: AsyncYouTubeNotifier) -> None:
+    """Test the request method of the AsyncYouTubeNotifier class."""
+    route = respx.post(REQUEST_URL)
+
+    route.mock(Response(HTTPStatus.NO_CONTENT))
+    await notifier._request([channel_id])
+
+    route.mock(Response(HTTPStatus.BAD_REQUEST))
+    with pytest.raises(HTTPError):
+        await notifier._request([channel_id])
+
+    type(notifier).is_ready = PropertyMock(return_value=False)
+    route.mock(Response(HTTPStatus.CONFLICT))
+    with pytest.raises(ConnectionError):
+        await notifier._request([channel_id])
+
+    type(notifier).is_ready = PropertyMock(return_value=True)
+    with pytest.raises(HTTPError):
+        await notifier._request([channel_id])
 
 
 def test_post(notifier: AsyncYouTubeNotifier) -> None:
