@@ -121,31 +121,6 @@ class AsyncYouTubeNotifier:
         """
         return self._server_ready_event.is_set()
 
-    def listener(  # pragma: no cover
-        self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[NotificationListener], NotificationListener]:
-        """Decorate the function to add a listener for push notifications.
-
-        .. deprecated:: 2.1.0
-            This method has been deprecated in favor of the more specific decorators:
-            :meth:`upload`, :meth:`edit`, and :meth:`any`.
-            It will be removed in version 3.0.0.
-
-        :param kind: The kind of notification to listen for.
-        :param channel_ids: The channel ID(s) to listen for.
-            If not provided, the listener will be called for all channels.
-        :return: The decorator function.
-        :raises ValueError: If the channel ID is '_all'.
-        """
-        warnings.warn(
-            "listener() is deprecated since version 2.1.0 and will be removed "
-            "in version 3.0.0. Use upload(), edit(), or any() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self._listener(kind=kind, channel_ids=channel_ids)
-
     def _listener(
         self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
     ) -> Callable[[NotificationListener], NotificationListener]:
@@ -206,37 +181,6 @@ class AsyncYouTubeNotifier:
         """
         return self._listener(kind=NotificationKind.EDIT, channel_ids=channel_ids)
 
-    def add_listener(
-        self,
-        func: NotificationListener,
-        kind: NotificationKind,
-        channel_ids: str | Iterable[str] | None = None,
-    ) -> Self:  # pragma: no cover
-        """Add a listener for push notifications.
-
-        .. deprecated:: 2.1.0
-            This method has been deprecated in favor of the more specific decorators:
-            :meth:`add_upload_listener`, :meth:`add_edit_listener`,
-            and :meth:`add_any_listener`.
-            It will be removed in version 3.0.0.
-
-        :param func: The listener function to add.
-        :param kind: The kind of notification to listen for.
-        :param channel_ids: The channel ID(s) to listen for.
-            If not provided, the listener will be called for all channels.
-        :return: The YouTubeNotifier instance to allow for method chaining.
-        :raises ValueError: If the channel ID is '_all'.
-        """
-        warnings.warn(
-            "add_listener() is deprecated since version 2.1.0 and will be removed "
-            "in version 3.0.0. Use add_upload_listener(), add_edit_listener(), "
-            "or add_any_listener() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self._add_listener(func, kind, channel_ids)
-
     def _add_listener(
         self,
         func: NotificationListener,
@@ -244,13 +188,6 @@ class AsyncYouTubeNotifier:
         channel_ids: str | Iterable[str] | None = None,
     ) -> Self:
         """Add a listener for push notifications.
-
-        .. deprecated:: 2.1.0
-            This method has been deprecated in favor of the more specific decorators:
-            :meth:`add_upload_listener`, :meth:`add_edit_listener`,
-            and :meth:`add_any_listener`.
-            It will be removed in version 3.0.0.
-
         :param func: The listener function to add.
         :param kind: The kind of notification to listen for.
         :param channel_ids: The channel ID(s) to listen for.
@@ -464,38 +401,6 @@ class AsyncYouTubeNotifier:
                 self._logger.exception("Failed to repeat task")
 
             await asyncio.sleep(interval.total_seconds())
-
-    async def serve(
-        self,
-        *,
-        host: str = "0.0.0.0",  # noqa: S104
-        port: int = 8000,
-        log_level: int = logging.WARNING,
-        app: FastAPI | None = None,
-        **configs: object,
-    ) -> None:  # pragma: no cover
-        """Start the FastAPI server to receive push notifications in an existing event
-            loop and wait until the server stops.
-
-        .. deprecated:: 2.1.0
-        Use :meth:`run` instead.
-
-        :param host: The host to run the FastAPI server on.
-        :param port: The port to run the FastAPI server on.
-        :param log_level: The log level to use for the uvicorn server.
-        :param app: The FastAPI app instance to use. If not provided, a new instance
-            will be created.
-        :param configs: Additional arguments to pass to the Config class of uvicorn.
-        :raises ValueError: If the given app instance has a route that conflicts with
-            the notifier's routes.
-        """
-        warnings.warn(
-            "serve() is deprecated and will be removed in "
-            "version 3.0.0. Use run() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        await self.run(host=host, port=port, log_level=log_level, app=app, **configs)
 
     async def run(
         self,
@@ -932,10 +837,6 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
             pass
         finally:
             self._on_exit()
-
-    def _on_exit(self) -> None:
-        """Perform a task after the notifier is stopped."""
-        self.stop()
 
     @contextmanager
     def run_in_background(
