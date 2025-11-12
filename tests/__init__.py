@@ -1,17 +1,10 @@
 """Contains fixtures and utility functions."""
 
-import os
 from datetime import UTC, datetime
-
-from dotenv import load_dotenv
-from pyngrok import ngrok
 
 from ytnoti import Channel, Timestamp, Video
 
 CALLBACK_URL = "http://localhost:8000"
-
-load_dotenv()
-ngrok.set_auth_token(os.environ["NGROK_TOKEN"])
 
 
 def get_channel() -> Channel:

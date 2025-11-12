@@ -20,7 +20,6 @@ import logging
 import secrets
 import signal
 import string
-import time
 import warnings
 from asyncio import Task
 from collections.abc import (
@@ -968,13 +967,11 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
 
         thread = Thread(target=self.run, kwargs=configs, daemon=True)
         thread.start()
-        try:
-            while not self.is_ready:
-                time.sleep(0.1)
-            yield thread
-        finally:
-            self.stop()
-            thread.join()
+
+        yield thread
+
+        self.stop()
+        thread.join()
 
     @staticmethod
     def _run_coroutine(coro: Coroutine[Any, Any, T]) -> T:
