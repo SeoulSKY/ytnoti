@@ -49,7 +49,7 @@ uv run pytest --cov --cov-report=term-missing
 
 9. Check if the minimum required version of Python with the updated code is `3.11`.
 ```bash
-uv run vermin ytnoti
+uv run vermin -t=3.11 --violations ytnoti
 ```
 
 10. Update the documentation at `docs/` folder if needed.
