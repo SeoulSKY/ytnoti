@@ -329,7 +329,9 @@ def test_add_listener() -> None:
     notifier.add_upload_listener(listener2)
     notifier.add_edit_listener(listener3)
 
-    assert len(notifier._listeners) == 3
+    assert len(notifier._any_listeners) == 1
+    assert len(notifier._upload_listeners) == 1
+    assert len(notifier._edit_listeners) == 1
 
     with pytest.raises(ValueError):
         notifier.add_any_listener(listener1, channel_ids=notifier._ALL_LISTENER_KEY)

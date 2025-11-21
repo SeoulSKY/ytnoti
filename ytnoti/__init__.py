@@ -6,12 +6,9 @@ videos are updated.
 __all__ = [
     "AsyncYouTubeNotifier",
     "Channel",
-    "NotificationKind",
-    "NotificationListener",
     "Timestamp",
     "Video",
     "YouTubeNotifier",
-    "YouTubeNotifierConfig",
 ]
 
 import asyncio
@@ -36,7 +33,7 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 from pyexpat import ExpatError
 from threading import Thread
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, TypeVar
 from urllib.parse import urlparse
 
 import xmltodict
@@ -48,11 +45,15 @@ from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
-from ytnoti.enums import NotificationKind
 from ytnoti.errors import HTTPError
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
 from ytnoti.models.video import Channel, Timestamp, Video
-from ytnoti.types import NotificationListener, T
+from ytnoti.types import AnyListener, EditListener, UploadListener
+
+T = TypeVar("T")
+NotificationKind = Literal["upload", "edit", "any"]
+NotificationListener = AnyListener | EditListener | UploadListener
+
 
 if sys.version_info >= (3, 12):  # pragma: no cover
     from typing import override  # novm
@@ -93,6 +94,7 @@ class AsyncYouTubeNotifier:
         if app is not None:
             self._verify_app(app=app, callback_url=callback_url)
 
+        self._app = app or FastAPI()
         self._logger = logging.getLogger(self.__class__.__name__)
 
         self._callback_url: str | None = callback_url
@@ -100,11 +102,11 @@ class AsyncYouTubeNotifier:
         self._password = password or str(
             "".join(secrets.choice(string.ascii_letters) for _ in range(20))
         )
-        self._app = app or FastAPI()
 
-        self._listeners: dict[
-            NotificationKind, dict[str, list[NotificationListener]]
-        ] = {kind: {} for kind in NotificationKind}
+        self._any_listeners: dict[str, list[AnyListener]] = {}
+        self._upload_listeners: dict[str, list[UploadListener]] = {}
+        self._edit_listeners: dict[str, list[EditListener]] = {}
+
         self._subscribed_ids: set[str] = set()
         self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
@@ -133,11 +135,6 @@ class AsyncYouTubeNotifier:
     ) -> Callable[[NotificationListener], NotificationListener]:
         """Decorate the function to add a listener for push notifications.
 
-        .. deprecated:: 2.1.0
-            This method has been deprecated in favor of the more specific decorators:
-            :meth:`upload`, :meth:`edit`, and :meth:`any`.
-            It will be removed in version 3.0.0.
-
         :param kind: The kind of notification to listen for.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
@@ -154,39 +151,36 @@ class AsyncYouTubeNotifier:
 
     def any(
         self, *, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[NotificationListener], NotificationListener]:
+    ) -> Callable[[AnyListener], AnyListener]:
         """Decorate the function to add a listener for any kind of push notification.
-        Alias for @listener(kind=NotificationKind.ANY).
 
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-        return self._listener(kind=NotificationKind.ANY, channel_ids=channel_ids)
+        return self._listener(kind="any", channel_ids=channel_ids)
 
     def upload(
         self, *, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[NotificationListener], NotificationListener]:
+    ) -> Callable[[UploadListener], UploadListener]:
         """Decorate the function to add a listener for when a video is uploaded.
-        Alies for @listener(kind=NotificationKind.UPLOAD).
 
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-        return self._listener(kind=NotificationKind.UPLOAD, channel_ids=channel_ids)
+        return self._listener(kind="upload", channel_ids=channel_ids)
 
     def edit(
         self, *, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[NotificationListener], NotificationListener]:
+    ) -> Callable[[EditListener], EditListener]:
         """Decorate the function to add a listener for when a video is edited.
-        Alies for @listener(kind=NotificationKind.EDIT).
 
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The decorator function.
         """
-        return self._listener(kind=NotificationKind.EDIT, channel_ids=channel_ids)
+        return self._listener(kind="edit", channel_ids=channel_ids)
 
     def _add_listener(
         self,
@@ -204,9 +198,7 @@ class AsyncYouTubeNotifier:
         """
         if channel_ids is None:
             self._get_listeners(kind, None).append(func)
-            self._logger.debug(
-                "Added %s listener (%s) for all channels", kind.name, func.__name__
-            )
+            self._logger.debug("Added %s listener (%s) for all channels", kind, func)
             return self
 
         if isinstance(channel_ids, str):
@@ -220,67 +212,74 @@ class AsyncYouTubeNotifier:
             self._get_listeners(kind, channel_id).append(func)
             self._logger.debug(
                 "Added %s listener (%s) for channel: %s",
-                kind.name,
-                func.__name__,
+                kind,
+                func,
                 channel_id,
             )
 
         return self
 
     def add_any_listener(
-        self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
+        self, func: AnyListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
         """Add a listener for any kind of push notification.
-        Alias for add_listener(func, NotificationKind.ANY, channel_ids).
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self._add_listener(func, NotificationKind.ANY, channel_ids)
+        return self._add_listener(func, "any", channel_ids)
 
     def add_upload_listener(
-        self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
+        self, func: UploadListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
         """Add a listener for when a video is uploaded.
-        Alias for add_listener(func, NotificationKind.UPLOAD, channel_ids).
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self._add_listener(func, NotificationKind.UPLOAD, channel_ids)
+        return self._add_listener(func, "upload", channel_ids)
 
     def add_edit_listener(
-        self, func: NotificationListener, channel_ids: str | Iterable[str] | None = None
+        self, func: EditListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
         """Add a listener for when a video is edited.
-        Alias for add_listener(func, NotificationKind.EDIT, channel_ids).
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self._add_listener(func, NotificationKind.EDIT, channel_ids)
+        return self._add_listener(func, "edit", channel_ids)
 
     def _get_listeners(
-        self, kind: NotificationKind, channel_id: str | None
+        self,
+        kind: NotificationKind,
+        channel_id: str | None,
     ) -> list[NotificationListener]:
         """Get the listeners for the given kind and channel ID.
 
-        :param kind: The kind of notification.
+        :param kind: The kind of notification to get the listeners for.
         :param channel_id: The channel ID to get the listeners for.
             If not provided, the listeners for all channels
         :return: The listeners for the given kind and channel ID.
         """
+        match kind:
+            case "any":
+                listener_map = self._any_listeners
+            case "upload":
+                listener_map = self._upload_listeners
+            case "edit":
+                listener_map = self._edit_listeners
+
         key = channel_id or self._ALL_LISTENER_KEY
-        listeners = self._listeners[kind].get(key, None)
+        listeners = listener_map.get(key)
         if listeners is None:
             listeners = []
-            self._listeners[kind][key] = listeners
+            listener_map[key] = listeners
 
         return listeners
 
@@ -710,18 +709,18 @@ class AsyncYouTubeNotifier:
                         timestamp.published == timestamp.updated
                         or not await self._video_history.has(video)
                     ):
-                        kind = NotificationKind.UPLOAD
+                        kind: NotificationKind = "upload"
                         await self._video_history.add(video)
                     else:
-                        kind = NotificationKind.EDIT
+                        kind: NotificationKind = "edit"
 
                 self._logger.debug("Classified video (%s) as %s", video.id, kind)
 
                 listeners = (
                     self._get_listeners(kind, None)
                     + self._get_listeners(kind, channel.id)
-                    + self._get_listeners(NotificationKind.ANY, None)
-                    + self._get_listeners(NotificationKind.ANY, channel.id)
+                    + self._get_listeners("any", None)
+                    + self._get_listeners("any", channel.id)
                 )
 
                 for func in listeners:

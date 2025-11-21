@@ -1,10 +1,15 @@
 """Contains type hints for the library."""
 
+__all__ = [
+    "AnyListener",
+    "EditListener",
+    "UploadListener",
+]
+
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
 
 from ytnoti.models.video import Video
 
-NotificationListener = Callable[[Video], Awaitable[None]]
-
-T = TypeVar("T")
+AnyListener = Callable[[Video], Awaitable[None]]
+UploadListener = Callable[[Video], Awaitable[None]]
+EditListener = Callable[[Video], Awaitable[None]]
