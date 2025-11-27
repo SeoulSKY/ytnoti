@@ -30,11 +30,15 @@ ytnoti
 
 .. image:: https://github.com/SeoulSKY/ytnoti/actions/workflows/ruff.yml/badge.svg
     :target: https://github.com/SeoulSKY/ytnoti/actions/workflows/ruff.yml/badge.svg
-    :alt: Ruff
+    :alt: ruff
+
+.. image:: https://github.com/SeoulSKY/ytnoti/actions/workflows/ty.yml/badge.svg
+    :target: https://github.com/SeoulSKY/ytnoti/actions/workflows/ty.yml/badge.svg
+    :alt: ty
 
 .. image:: https://github.com/SeoulSKY/ytnoti/actions/workflows/pytest.yml/badge.svg
     :target: https://github.com/SeoulSKY/ytnoti/actions/workflows/pytest.yml/badge.svg
-    :alt: Pytest
+    :alt: pytest
 
 .. image:: https://codecov.io/github/SeoulSKY/ytnoti/graph/badge.svg?token=RYRIXW3LBO
     :target: https://codecov.io/github/SeoulSKY/ytnoti

@@ -15,6 +15,7 @@
 </div>
 <div align="center">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/ruff.yml/badge.svg">
+    <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/ty.yml/badge.svg">
     <img src="https://github.com/SeoulSKY/ytnoti/actions/workflows/pytest.yml/badge.svg">
     <a href="https://codecov.io/github/SeoulSKY/ytnoti">
         <img src="https://codecov.io/github/SeoulSKY/ytnoti/graph/badge.svg?token=RYRIXW3LBO"/>
