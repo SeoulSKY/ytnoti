@@ -14,5 +14,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --dev --frozen
+
       - name: Run ty
-        uses: JacobCoffee/ty-action@v0.0.1
+        run: uv run ty check
