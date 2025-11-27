@@ -7,6 +7,7 @@ v3.0.0
 * Deprecate ``app`` keyword argument for ``(Async)YouTubeNotifier.run()``. It will be removed in version 4.0.0. Pass the ``FastAPI`` instance to the constructor instead.
 * Send an unsubscribe request to YouTube when the notification was for the channel that is not subscribed anymore.
 * Stopping the notifier no longer sends unsubscribe requests.
+* Improve the event classification logic. It now also checks the timestamp of the video in addition to video history to determine if the event is a new upload or an edit.
 * Remove deprecated methods and decorators:
   * ``(Async)YouTubeNotifier.listener()``
   * ``(Async)YouTubeNotifier.add_listener()``

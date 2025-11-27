@@ -67,7 +67,7 @@ class AsyncYouTubeNotifier:
     """
 
     _ALL_LISTENER_KEY = "_all"
-    _UPLOAD_EVENT_THRESHOLD = timedelta(seconds=20)
+    _UPLOAD_TIMEDELTA_THRESHOLD = timedelta(seconds=20)
 
     @override
     def __init__(
@@ -705,14 +705,10 @@ class AsyncYouTubeNotifier:
                 )
 
                 async with self._lock:
-                    if (
-                        timestamp.published == timestamp.updated
-                        or not await self._video_history.has(video)
-                    ):
-                        kind: NotificationKind = "upload"
+                    kind = await self._classify(video)
+
+                    if kind == "upload":
                         await self._video_history.add(video)
-                    else:
-                        kind: NotificationKind = "edit"
 
                 self._logger.debug("Classified video (%s) as %s", video.id, kind)
 
@@ -729,6 +725,18 @@ class AsyncYouTubeNotifier:
             raise RuntimeError(f"Failed to parse request body: {body}") from ex
 
         return Response(status_code=HTTPStatus.NO_CONTENT)
+
+    async def _classify(self, video: Video) -> NotificationKind:
+        if await self._video_history.has(video):
+            return "edit"
+
+        if (
+            video.timestamp.updated - video.timestamp.published
+            <= self._UPLOAD_TIMEDELTA_THRESHOLD
+        ):
+            return "upload"
+
+        return "edit"
 
     @staticmethod
     def _parse_timestamp(timestamp: str) -> datetime:

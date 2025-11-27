@@ -12,8 +12,9 @@ from fastapi.testclient import TestClient
 from httpx import ConnectError, Response
 
 from tests import CALLBACK_URL
-from ytnoti import AsyncYouTubeNotifier, Video
+from ytnoti import AsyncYouTubeNotifier
 from ytnoti.errors import HTTPError
+from ytnoti.models.video import Channel, Timestamp, Video
 
 channel_ids = [
     "UCPF-oYb2-xN5FbCXy0167Gg",
@@ -45,7 +46,7 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-06T21:40:57+00:00</published>
+        <published>2015-03-09T19:05:24.552394234+00:00</published>
         <updated>2015-03-09T19:05:24.552394234+00:00</updated>
       </entry>
     </feed>
@@ -69,7 +70,7 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-06T21:40:57+00:00</published>
+        <published>2015-03-09T19:05:24.552394234+00:00</published>
         <updated>2015-03-09T19:05:24.552394234+00:00</updated>
       </entry>
     </feed>
@@ -90,7 +91,7 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-06T21:40:57+00:00</published>
+        <published>2015-03-09T19:05:24.552394234+00:00</published>
         <updated>2015-03-09T19:05:24.552394234+00:00</updated>
       </entry>
       <entry>
@@ -103,7 +104,7 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-06T21:40:57+00:00</published>
+        <published>2015-03-09T19:05:24.552394234+00:00</published>
         <updated>2015-03-09T19:05:24.552394234+00:00</updated>
       </entry>
     </feed>
@@ -512,6 +513,48 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
     notifier._password = password
+
+
+@pytest.mark.asyncio
+async def test_classify(notifier: AsyncYouTubeNotifier) -> None:
+    """Test the classify method of the AsyncYouTubeNotifier class."""
+    upload_timestamp = Timestamp(
+        published=datetime.now(UTC),
+        updated=datetime.now(UTC)
+        + AsyncYouTubeNotifier._UPLOAD_TIMEDELTA_THRESHOLD
+        - timedelta(seconds=1),
+    )
+
+    edit_timestamp = Timestamp(
+        published=datetime.now(UTC),
+        updated=datetime.now(UTC)
+        + AsyncYouTubeNotifier._UPLOAD_TIMEDELTA_THRESHOLD
+        + timedelta(seconds=1),
+    )
+
+    video = Video(
+        id="VIDEO_ID",
+        title="Video title",
+        url="http://www.youtube.com/watch?v=VIDEO_ID",
+        timestamp=upload_timestamp,
+        channel=Channel(
+            id="CHANNEL_ID",
+            name="Channel title",
+            url="http://www.youtube.com/channel/CHANNEL_ID",
+        ),
+    )
+
+    video.timestamp = upload_timestamp
+    assert await notifier._classify(video) == "upload"
+    video.timestamp = edit_timestamp
+    assert await notifier._classify(video) == "edit"
+
+    await notifier._video_history.add(video)
+
+    video.timestamp = upload_timestamp
+    assert await notifier._classify(video) == "edit"
+    video.timestamp = edit_timestamp
+    assert await notifier._classify(video) == "edit"
 
 
 @pytest.mark.asyncio
