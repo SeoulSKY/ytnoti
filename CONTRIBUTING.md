@@ -30,7 +30,7 @@ uv python pin 3.11
 4. Install and lock the development dependencies.
 
 ```bash
-uv sync --extra dev --extra docs
+uv sync --all-groups
 ```
 
 5. Write your code.

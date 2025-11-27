@@ -1,4 +1,4 @@
-name: ruff
+name: ty
 
 on:
   push:
@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  ruff:
+  ty:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run ruff
-        uses: chartboost/ruff-action@v1
+      - name: Run ty
+        uses: JacobCoffee/ty-action@v1

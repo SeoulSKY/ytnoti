@@ -19,7 +19,11 @@ dependencies = [
     "aiofiles>=24.1.0,<25.0.0"
 ]
 
-[project.optional-dependencies]
+[build-system]
+requires = ["setuptools>=80.9.0,<81.0.0"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
 dev = [
     "pytest>=9.0.0",
     "pytest-cov>=7.0.0",
@@ -30,13 +34,10 @@ dev = [
     "vermin>=1.7.0",
     "sphinx>=8.2.3",
     "furo>=2025.9.25",
+    "ty>=0.0.1a28",
 ]
 
 docs = [
     "sphinx>=8.2.3",
     "furo>=2025.9.25",
 ]
-
-[build-system]
-requires = ["setuptools>=80.9.0,<81.0.0"]
-build-backend = "setuptools.build_meta"

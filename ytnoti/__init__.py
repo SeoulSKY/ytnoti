@@ -789,12 +789,12 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         )
 
     @override
-    def subscribe(self, channel_ids: str | Iterable[str]) -> Self:
+    def subscribe(self, channel_ids: str | Iterable[str]) -> Self:  # ty: ignore[invalid-method-override]
         self._run_coroutine(super().subscribe(channel_ids))
         return self
 
     @override
-    def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:
+    def unsubscribe(self, channel_ids: str | Iterable[str]) -> Self:  # ty: ignore[invalid-method-override]
         self._run_coroutine(super().unsubscribe(channel_ids))
         return self
 
@@ -807,7 +807,7 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
         app: FastAPI | None = None,
         log_level: int = logging.WARNING,
         **configs: object,
-    ) -> None:
+    ) -> None:  # ty: ignore[invalid-method-override]
         """Start the FastAPI server to receive push notifications in the
             current thread and wait until the server stops.
 
