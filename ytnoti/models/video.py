@@ -1,6 +1,6 @@
 """Contains the dataclasses for the video model."""
 
-__all__ = ["Channel", "Timestamp", "Video"]
+__all__ = ["Channel", "DeletedVideo", "Timestamp", "Video"]
 
 
 from dataclasses import dataclass
@@ -50,3 +50,20 @@ class Video:
 
     channel: Channel
     """The channel of the video"""
+
+
+@dataclass
+class DeletedVideo:
+    """Represents a deleted YouTube video."""
+
+    id: str
+    """The unique ID of the deleted video"""
+
+    url: str
+    """The URL of the deleted video"""
+
+    timestamp: datetime
+    """The time when the video was deleted"""
+
+    channel: Channel
+    """The channel of the deleted video"""

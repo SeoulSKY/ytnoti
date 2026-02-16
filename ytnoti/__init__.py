@@ -6,6 +6,7 @@ videos are updated.
 __all__ = [
     "AsyncYouTubeNotifier",
     "Channel",
+    "DeletedVideo",
     "Timestamp",
     "Video",
     "YouTubeNotifier",
@@ -18,6 +19,7 @@ import secrets
 import signal
 import string
 import sys
+import time
 import warnings
 from asyncio import Task
 from collections.abc import (
@@ -33,7 +35,7 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 from pyexpat import ExpatError
 from threading import Thread
-from typing import Any, Literal, Self, TypeVar
+from typing import Any, Literal, Self, TypeVar, overload
 from urllib.parse import urlparse
 
 import xmltodict
@@ -47,13 +49,15 @@ from uvicorn import Config, Server
 
 from ytnoti.errors import HTTPError
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
-from ytnoti.models.video import Channel, Timestamp, Video
-from ytnoti.types import AnyListener, EditListener, UploadListener
+from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
+from ytnoti.types import AnyListener, DeleteListener, EditListener, UploadListener
 
 T = TypeVar("T")
-NotificationKind = Literal["upload", "edit", "any"]
-NotificationListener = AnyListener | EditListener | UploadListener
-
+NotificationKind = Literal["upload", "edit", "any", "delete"]
+NotificationListener = AnyListener | EditListener | UploadListener | DeleteListener
+NotificationListeners = (
+    list[AnyListener] | list[EditListener] | list[UploadListener] | list[DeleteListener]
+)
 
 if sys.version_info >= (3, 12):  # pragma: no cover
     from typing import override  # novm
@@ -106,6 +110,7 @@ class AsyncYouTubeNotifier:
         self._any_listeners: dict[str, list[AnyListener]] = {}
         self._upload_listeners: dict[str, list[UploadListener]] = {}
         self._edit_listeners: dict[str, list[EditListener]] = {}
+        self._delete_listeners: dict[str, list[DeleteListener]] = {}
 
         self._subscribed_ids: set[str] = set()
         self._video_history = video_history or InMemoryVideoHistory()
@@ -130,75 +135,25 @@ class AsyncYouTubeNotifier:
         """
         return self._server_ready_event.is_set()
 
-    def _listener(
-        self, *, kind: NotificationKind, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[NotificationListener], NotificationListener]:
-        """Decorate the function to add a listener for push notifications.
-
-        :param kind: The kind of notification to listen for.
-        :param channel_ids: The channel ID(s) to listen for.
-            If not provided, the listener will be called for all channels.
-        :return: The decorator function.
-        :raises ValueError: If the channel ID is '_all'.
-        """
-
-        def decorator(func: NotificationListener) -> NotificationListener:
-            self._add_listener(func, kind, channel_ids)
-
-            return func
-
-        return decorator
-
-    def any(
-        self, *, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[AnyListener], AnyListener]:
-        """Decorate the function to add a listener for any kind of push notification.
-
-        :param channel_ids: The channel ID(s) to listen for.
-            If not provided, the listener will be called for all channels.
-        :return: The decorator function.
-        """
-        return self._listener(kind="any", channel_ids=channel_ids)
-
-    def upload(
-        self, *, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[UploadListener], UploadListener]:
-        """Decorate the function to add a listener for when a video is uploaded.
-
-        :param channel_ids: The channel ID(s) to listen for.
-            If not provided, the listener will be called for all channels.
-        :return: The decorator function.
-        """
-        return self._listener(kind="upload", channel_ids=channel_ids)
-
-    def edit(
-        self, *, channel_ids: str | Iterable[str] | None = None
-    ) -> Callable[[EditListener], EditListener]:
-        """Decorate the function to add a listener for when a video is edited.
-
-        :param channel_ids: The channel ID(s) to listen for.
-            If not provided, the listener will be called for all channels.
-        :return: The decorator function.
-        """
-        return self._listener(kind="edit", channel_ids=channel_ids)
-
-    def _add_listener(
+    def _register_listener(
         self,
-        func: NotificationListener,
-        kind: NotificationKind,
-        channel_ids: str | Iterable[str] | None = None,
+        func: T,
+        channel_ids: str | Iterable[str] | None,
+        get_listeners: Callable[[str | None], list[T]],
     ) -> Self:
-        """Add a listener for push notifications.
+        """Register a listener for push notifications.
+
         :param func: The listener function to add.
-        :param kind: The kind of notification to listen for.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
+        :param get_listeners: A function that returns the list of listeners
+            for a given channel ID.
         :return: The YouTubeNotifier instance to allow for method chaining.
         :raises ValueError: If the channel ID is '_all'.
         """
         if channel_ids is None:
-            self._get_listeners(kind, None).append(func)
-            self._logger.debug("Added %s listener (%s) for all channels", kind, func)
+            get_listeners(None).append(func)
+            self._logger.debug("Added listener (%s) for all channels", func)
             return self
 
         if isinstance(channel_ids, str):
@@ -209,15 +164,78 @@ class AsyncYouTubeNotifier:
                 message = f"Channel ID cannot be '{self._ALL_LISTENER_KEY}'"
                 raise ValueError(message)
 
-            self._get_listeners(kind, channel_id).append(func)
+            get_listeners(channel_id).append(func)
             self._logger.debug(
-                "Added %s listener (%s) for channel: %s",
-                kind,
+                "Added listener (%s) for channel: %s",
                 func,
                 channel_id,
             )
 
         return self
+
+    def any(
+        self, *, channel_ids: str | Iterable[str] | None = None
+    ) -> Callable[[AnyListener], AnyListener]:
+        """Decorate the function to add a listener for any kind of push notification.
+
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The decorator function.
+        """
+
+        def decorator(func: AnyListener) -> AnyListener:
+            self.add_any_listener(func, channel_ids)
+            return func
+
+        return decorator
+
+    def upload(
+        self, *, channel_ids: str | Iterable[str] | None = None
+    ) -> Callable[[UploadListener], UploadListener]:
+        """Decorate the function to add a listener for when a video is uploaded.
+
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The decorator function.
+        """
+
+        def decorator(func: UploadListener) -> UploadListener:
+            self.add_upload_listener(func, channel_ids)
+            return func
+
+        return decorator
+
+    def edit(
+        self, *, channel_ids: str | Iterable[str] | None = None
+    ) -> Callable[[EditListener], EditListener]:
+        """Decorate the function to add a listener for when a video is edited.
+
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The decorator function.
+        """
+
+        def decorator(func: EditListener) -> EditListener:
+            self.add_edit_listener(func, channel_ids)
+            return func
+
+        return decorator
+
+    def delete(
+        self, *, channel_ids: str | Iterable[str] | None = None
+    ) -> Callable[[DeleteListener], DeleteListener]:
+        """Decorate the function to add a listener for when a video is deleted.
+
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The decorator function.
+        """
+
+        def decorator(func: DeleteListener) -> DeleteListener:
+            self.add_delete_listener(func, channel_ids)
+            return func
+
+        return decorator
 
     def add_any_listener(
         self, func: AnyListener, channel_ids: str | Iterable[str] | None = None
@@ -229,19 +247,27 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self._add_listener(func, "any", channel_ids)
+        return self._register_listener(
+            func,
+            channel_ids,
+            lambda cid: self._get_listeners("any", cid),
+        )
 
     def add_upload_listener(
         self, func: UploadListener, channel_ids: str | Iterable[str] | None = None
     ) -> Self:
-        """Add a listener for when a video is uploaded.
+        """Add a listener for when a video is uploaded or a live stream is started.
 
         :param func: The listener function to add.
         :param channel_ids: The channel ID(s) to listen for.
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self._add_listener(func, "upload", channel_ids)
+        return self._register_listener(
+            func,
+            channel_ids,
+            lambda cid: self._get_listeners("upload", cid),
+        )
 
     def add_edit_listener(
         self, func: EditListener, channel_ids: str | Iterable[str] | None = None
@@ -253,13 +279,61 @@ class AsyncYouTubeNotifier:
             If not provided, the listener will be called for all channels.
         :return: The YouTubeNotifier instance to allow for method chaining.
         """
-        return self._add_listener(func, "edit", channel_ids)
+        return self._register_listener(
+            func,
+            channel_ids,
+            lambda cid: self._get_listeners("edit", cid),
+        )
+
+    def add_delete_listener(
+        self, func: DeleteListener, channel_ids: str | Iterable[str] | None = None
+    ) -> Self:
+        """Add a listener for when a video is deleted.
+
+        :param func: The listener function to add.
+        :param channel_ids: The channel ID(s) to listen for.
+            If not provided, the listener will be called for all channels.
+        :return: The YouTubeNotifier instance to allow for method chaining.
+        """
+        return self._register_listener(
+            func,
+            channel_ids,
+            lambda cid: self._get_listeners("delete", cid),
+        )
+
+    @overload
+    def _get_listeners(
+        self,
+        kind: Literal["upload"],
+        channel_id: str | None,
+    ) -> list[UploadListener]: ...
+
+    @overload
+    def _get_listeners(
+        self,
+        kind: Literal["edit"],
+        channel_id: str | None,
+    ) -> list[EditListener]: ...
+
+    @overload
+    def _get_listeners(
+        self,
+        kind: Literal["delete"],
+        channel_id: str | None,
+    ) -> list[DeleteListener]: ...
+
+    @overload
+    def _get_listeners(
+        self,
+        kind: Literal["any"],
+        channel_id: str | None,
+    ) -> list[AnyListener]: ...
 
     def _get_listeners(
         self,
         kind: NotificationKind,
         channel_id: str | None,
-    ) -> list[NotificationListener]:
+    ) -> NotificationListeners:
         """Get the listeners for the given kind and channel ID.
 
         :param kind: The kind of notification to get the listeners for.
@@ -274,6 +348,8 @@ class AsyncYouTubeNotifier:
                 listener_map = self._upload_listeners
             case "edit":
                 listener_map = self._edit_listeners
+            case "delete":
+                listener_map = self._delete_listeners
 
         key = channel_id or self._ALL_LISTENER_KEY
         listeners = listener_map.get(key)
@@ -621,10 +697,11 @@ class AsyncYouTubeNotifier:
         """Gracefully stop the notifier and ngrok (if used).
         If the notifier is not running, this method will do nothing.
         """
-        if not self.is_ready or self._server is None:
+        if self._server is None:
             return
 
         self._server.should_exit = True
+        self._server.force_exit = True
         self._server = None
 
         if self._is_using_ngrok and self._callback_url is not None:
@@ -661,7 +738,29 @@ class AsyncYouTubeNotifier:
 
         try:
             if "at:deleted-entry" in body["feed"]:
-                self._logger.debug("Ignoring push notification for deleted video")
+                entry = body["feed"]["at:deleted-entry"]
+                channel = Channel(
+                    id=entry["at:by"]["uri"].split("/")[-1],
+                    name=entry["at:by"]["name"],
+                    url=entry["at:by"]["uri"],
+                )
+                deleted_video = DeletedVideo(
+                    id=entry["@ref"].split(":")[-1],
+                    url=entry["link"]["@href"],
+                    timestamp=self._parse_timestamp(entry["@when"]),
+                    channel=channel,
+                )
+
+                listeners = (
+                    self._get_listeners("delete", None)
+                    + self._get_listeners("delete", channel.id)
+                    + self._get_listeners("any", None)
+                    + self._get_listeners("any", channel.id)
+                )
+
+                for func in listeners:
+                    await func(deleted_video)
+
                 return Response(status_code=HTTPStatus.NO_CONTENT)
 
             # entry can be list of dict or just dict
@@ -726,7 +825,7 @@ class AsyncYouTubeNotifier:
 
         return Response(status_code=HTTPStatus.NO_CONTENT)
 
-    async def _classify(self, video: Video) -> NotificationKind:
+    async def _classify(self, video: Video) -> Literal["upload", "edit"]:
         if await self._video_history.has(video):
             return "edit"
 
@@ -887,6 +986,11 @@ class YouTubeNotifier(AsyncYouTubeNotifier):
 
         thread = Thread(target=self.run, kwargs=configs, daemon=True)
         thread.start()
+
+        while not self.is_ready:
+            if not thread.is_alive():
+                raise RuntimeError("Server thread died unexpectedly")
+            time.sleep(0.1)
 
         yield thread
 

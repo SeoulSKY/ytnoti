@@ -27,7 +27,7 @@ Using Your FastAPI Instance
 ---------------------------
 
 By default, ``(Async)YouTubeNotifier`` creates a new FastAPI instance internally.
-However, you can pass your own FastAPI instance when you run (Async)YouTubeNotifier.
+However, you can pass your own FastAPI instance when you create (Async)YouTubeNotifier.
 
 .. code:: python
 

@@ -43,8 +43,8 @@ ytnoti
 .. image:: https://codecov.io/github/SeoulSKY/ytnoti/graph/badge.svg?token=RYRIXW3LBO
     :target: https://codecov.io/github/SeoulSKY/ytnoti
 
-ytnoti is designed to help you receive YouTube push notifications in real-time for video
-upload and edit easily and efficiently.
+`ytnoti` is designed to help you receive YouTube push notifications in real-time for video
+upload, edit, and live stream easily and efficiently.
 
 🛠️ How it works
 ----------------
@@ -157,3 +157,4 @@ This project is licensed under the MIT License - see the `LICENSE.md <https://gi
 
     faq
     changelog
+    migration

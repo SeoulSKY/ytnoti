@@ -4,7 +4,7 @@
 </div>
 
 <blockquote align="center">
-    Easy-to-use Python library for receiving YouTube push notifications for video upload and edit in real-time
+    Easy-to-use Python library for receiving real-time YouTube push notifications for video uploads, edits, and live streams.
 </blockquote>
 
 <div align="center">
@@ -23,7 +23,7 @@
 </div>
 
 `ytnoti` is designed to help you receive YouTube push notifications in real-time for video
-upload and edit easily and efficiently.
+upload, edit, and live stream easily and efficiently.
 
 # 🛠️ How it works
 

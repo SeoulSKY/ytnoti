@@ -3,6 +3,16 @@ Changelog
 
 v3.0.0
 ------
+
+Features
+~~~~~~~~
+
+* ``(Async)YouTubeNotifier`` can now receive delete events from YouTube. Add a listener by using ``@notifier.delete()`` decorator.
+* ``@notifier.any()`` now receives an either ``Video`` or ``DeletedVideo`` object as an argument, since it now also receives delete events.
+
+Fixes and Deprecations
+~~~~~~~~~~~~~~~~~~~~~~
+
 * Fix that the passed ``port`` keyword argument to ``(Async)YouTubeNotifier.run()`` was ignored when ngrok tunnel was used.
 * Deprecate ``app`` keyword argument for ``(Async)YouTubeNotifier.run()``. It will be removed in version 4.0.0. Pass the ``FastAPI`` instance to the constructor instead.
 * Send an unsubscribe request to YouTube when the notification was for the channel that is not subscribed anymore.
@@ -12,7 +22,6 @@ v3.0.0
   * ``(Async)YouTubeNotifier.listener()``
   * ``(Async)YouTubeNotifier.add_listener()``
   * ``AsyncYouTubeNotifier.serve()``
-
 
 v2.1.4
 ------

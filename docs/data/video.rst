@@ -7,6 +7,7 @@ Video
    :toctree: ../_autosummary
    :nosignatures:
 
+    DeletedVideo
     Video
     Channel
     Timestamp

@@ -1,6 +1,6 @@
 """Contains the tests for the class YouTubeNotifier."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -45,6 +45,26 @@ def test_run_in_background() -> None:
 
     with notifier.run_in_background():
         assert notifier.is_ready
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_run_in_background_error() -> None:
+    """Test run_in_background method when the server thread dies unexpectedly."""
+    notifier = YouTubeNotifier(callback_url=CALLBACK_URL)
+
+    # Force is_ready to stay False so the loop continues until thread death
+    with (
+        patch.object(notifier, "run", side_effect=RuntimeError("Mock error")),
+        patch.object(
+            YouTubeNotifier, "is_ready", new_callable=PropertyMock
+        ) as mock_is_ready,
+    ):
+        mock_is_ready.return_value = False
+        with (
+            pytest.raises(RuntimeError, match="Server thread died unexpectedly"),
+            notifier.run_in_background(),
+        ):
+            pass
 
 
 def test_subscribe(notifier: YouTubeNotifier) -> None:

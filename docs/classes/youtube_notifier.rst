@@ -8,10 +8,12 @@ YouTubeNotifier
    :nosignatures:
 
     add_any_listener
+    add_delete_listener
     add_edit_listener
     add_upload_listener
     any
     callback_url
+    delete
     edit
     is_ready
     run

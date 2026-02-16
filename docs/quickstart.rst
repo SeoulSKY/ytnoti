@@ -55,9 +55,10 @@ Using Decorators
 
 ``(Async)YouTubeNotifier`` provides following decorators for your listener function:
 
-- ``@notifier.any()``: Triggered when any event occurs
-- ``@notifier.edit()``: Triggered when a video is edited
-- ``@notifier.upload()``: Triggered when a new video is uploaded
+- ``@notifier.any()``: Triggered when any event occurs.
+- ``@notifier.delete()``: Triggered when a video is deleted.
+- ``@notifier.edit()``: Triggered when a video is edited.
+- ``@notifier.upload()``: Triggered when a new video is uploaded or a live stream is started.
 
 They take an optional parameter ``channel_ids`` to only listen to events from specific channels.
 

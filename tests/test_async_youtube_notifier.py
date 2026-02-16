@@ -14,7 +14,7 @@ from httpx import ConnectError, Response
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier
 from ytnoti.errors import HTTPError
-from ytnoti.models.video import Channel, Timestamp, Video
+from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
 
 channel_ids = [
     "UCPF-oYb2-xN5FbCXy0167Gg",
@@ -254,7 +254,7 @@ def test_listener(
     upload_called = False
 
     @notifier.any()
-    async def listener(_video: Video) -> None:
+    async def listener(_video: Video | DeletedVideo) -> None:
         nonlocal any_called
         any_called = True
 
@@ -284,6 +284,34 @@ def test_listener(
     assert edit_called
     assert not upload_called
 
+    any_called = False
+    delete_called = False
+
+    @notifier.delete()
+    async def listener(_video: DeletedVideo) -> None:
+        nonlocal delete_called
+        delete_called = True
+
+    response = client.post(
+        CALLBACK_URL,
+        content=f"""
+        <feed xmlns:at="http://purl.org/atompub/tombstones/1.0" xmlns="http://www.w3.org/2005/Atom">
+            <at:deleted-entry ref="yt:video:VIDEO_ID" when="2024-09-09T22:34:19.642702+00:00">
+            <link href="https://www.youtube.com/watch?v=VIDEO_ID" />
+            <at:by>
+                <name>Channel title</name>
+                <uri>https://www.youtube.com/channel/{channel_id}</uri>
+            </at:by>
+            </at:deleted-entry>
+        </feed>
+        """,
+    )
+    assert response.status_code == HTTPStatus.NO_CONTENT
+
+    assert any_called
+    assert delete_called
+    assert not upload_called
+
 
 def test_listener_channel_id(notifier: AsyncYouTubeNotifier) -> None:
     """Test the listener decorator with channel ID."""
@@ -295,17 +323,17 @@ def test_listener_channel_id(notifier: AsyncYouTubeNotifier) -> None:
     called = 0
 
     @notifier.any(channel_ids=channel_id)
-    async def listener(_video: Video) -> None:
+    async def listener(_video: Video | DeletedVideo) -> None:
         nonlocal called
         called += 1
 
     @notifier.any(channel_ids=[channel_id, "invalid"])
-    async def listener(_video: Video) -> None:
+    async def listener(_video: Video | DeletedVideo) -> None:
         nonlocal called
         called += 1
 
     @notifier.any(channel_ids=["invalid"])
-    async def listener(_video: Video) -> None:
+    async def listener(_video: Video | DeletedVideo) -> None:
         nonlocal called
         called += 1
 
@@ -317,7 +345,7 @@ def test_add_listener() -> None:
     """Test adding listeners to the AsyncYouTubeNotifier class."""
     notifier = AsyncYouTubeNotifier()
 
-    async def listener1(_video: Video) -> None:
+    async def listener1(_video: Video | DeletedVideo) -> None:
         pass
 
     async def listener2(_video: Video) -> None:
@@ -326,13 +354,18 @@ def test_add_listener() -> None:
     async def listener3(_video: Video) -> None:
         pass
 
+    async def listener4(_video: DeletedVideo) -> None:
+        pass
+
     notifier.add_any_listener(listener1)
     notifier.add_upload_listener(listener2)
     notifier.add_edit_listener(listener3)
+    notifier.add_delete_listener(listener4)
 
     assert len(notifier._any_listeners) == 1
     assert len(notifier._upload_listeners) == 1
     assert len(notifier._edit_listeners) == 1
+    assert len(notifier._delete_listeners) == 1
 
     with pytest.raises(ValueError):
         notifier.add_any_listener(listener1, channel_ids=notifier._ALL_LISTENER_KEY)
