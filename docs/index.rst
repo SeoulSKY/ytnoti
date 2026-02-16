@@ -44,7 +44,7 @@ ytnoti
     :target: https://codecov.io/github/SeoulSKY/ytnoti
 
 `ytnoti` is designed to help you receive YouTube push notifications in real-time for video
-upload, edit, and live stream easily and efficiently.
+upload, edit, delete, and live stream easily and efficiently.
 
 🛠️ How it works
 ----------------
