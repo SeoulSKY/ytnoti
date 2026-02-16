@@ -27,7 +27,7 @@ channel_id = channel_ids[0]
 CHANNEL_ID_VERIFICATION_URL = "https://www.youtube.com/feeds/videos.xml"
 REQUEST_URL = "https://pubsubhubbub.appspot.com"
 
-# ruff: noqa: E501 ERA001
+# ruff: noqa: E501
 
 xmls = [
     f"""
@@ -121,8 +121,6 @@ xmls = [
     </feed>
     """,
 ]
-
-# ruff: enable
 
 
 @pytest.fixture
