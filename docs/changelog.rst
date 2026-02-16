@@ -19,9 +19,12 @@ Fixes and Deprecations
 * Stopping the notifier no longer sends unsubscribe requests.
 * Improve the event classification logic. It now also checks the timestamp of the video in addition to video history to determine if the event is a new upload or an edit.
 * Remove deprecated methods and decorators:
+
   * ``(Async)YouTubeNotifier.listener()``
   * ``(Async)YouTubeNotifier.add_listener()``
   * ``AsyncYouTubeNotifier.serve()``
+
+To migrate to version 3.0.0, see :doc:`migration`
 
 v2.1.4
 ------
@@ -160,6 +163,7 @@ v0.1.1
 * Improved the efficiency of verification of channel IDs (it now uses ``HEAD`` request instead of ``GET``)
 * For parameter ``channel_ids`` for all ``YouTubeNotifier``'s methods, it can now also take a singular id with type ``str``.
 * Added optional parameters to the constructor of ``YouTubeNotifier``
+
   * ``password`` - The password to use for verifying push notifications. If not provided, a random password will be generated. Defaults to None
   * ``cache_size``: The number of video IDs to keep in the cache to prevent duplicate notifications. Defaults to 5000
 * Added ``created_at`` in ``Channel``
