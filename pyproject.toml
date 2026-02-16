@@ -1,6 +1,6 @@
 [project]
 name = "ytnoti"
-version = "2.1.4"
+version = "3.0.0"
 description = "Easy-to-use Python library for receiving YouTube push notification for video upload and edit in real-time"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [

@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path("..").resolve()))
 project = "ytnoti"
 copyright = "2024 - Present, SeoulSKY"  # noqa: A001
 author = "SeoulSKY"
-release = "2.1.3"
+release = "3.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
