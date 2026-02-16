@@ -2,7 +2,7 @@
 
 from pyngrok import ngrok
 
-from ytnoti import Video, YouTubeNotifier
+from ytnoti import DeletedVideo, Video, YouTubeNotifier
 
 
 def main() -> None:
@@ -12,8 +12,10 @@ def main() -> None:
     notifier = YouTubeNotifier()
 
     @notifier.any()
-    async def listener1(video: Video) -> None:
-        """Listener called when a video is uploaded or edited for any channel."""
+    async def listener1(video: Video | DeletedVideo) -> None:
+        """Listener called when a video is uploaded, deleted, or edited for
+        any channel.
+        """
         print("listener 1 called")
         print(video)
 
@@ -30,6 +32,12 @@ def main() -> None:
         video is edited on any channel.
         """
         print("listener 3 called")
+        print(video)
+
+    @notifier.delete()
+    async def listener4(video: DeletedVideo) -> None:
+        """Listener called when a video is deleted for any channel."""
+        print("listener 4 called")
         print(video)
 
     notifier.subscribe(["UCupvZG-5ko_eiXAupbDfxWw", "UChLtXXpo4Ge1ReTEboVvTDg"])
