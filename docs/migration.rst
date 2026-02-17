@@ -14,6 +14,18 @@ The following methods are removed:
 The following enums are removed:
   * ``NotificationKind`` - If your code uses this enum, please define on your own.
 
+If your code uses the ``@notifier.any()`` listener, then update the type hint for the first argument:
+
+.. code:: python
+
+   from ytnoti import Video, DeletedVideo
+
+   @notifier.any()
+   async def listener(video: Video | DeletedVideo) -> None:
+       if isinstance(video, DeletedVideo):
+           return
+       print(video)
+
 ``@notifier.listener()``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

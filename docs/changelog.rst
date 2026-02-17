@@ -26,6 +26,8 @@ Fixes and Deprecations
 
 To migrate to version 3.0.0, see :doc:`migration`
 
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v2.1.4...v3.0.0
+
 v2.1.4
 ------
 
