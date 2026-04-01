@@ -1,6 +1,16 @@
 Changelog
 ==========
 
+v3.0.1
+------
+
+Fixes
+~~~~~
+
+* Fix that ``(Async)YouTubeNotifier`` didn't work properly with Starlette 1.0.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.0...v3.0.1
+
 v3.0.0
 ------
 

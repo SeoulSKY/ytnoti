@@ -404,7 +404,6 @@ class AsyncYouTubeNotifier:
         :param app: The FastAPI app instance to add the event handlers for.
         :param callback_url: The callback URL for the notifier.
         """
-        # Starlette 1.0 removed add_event_handler; use router.on_startup instead
         app.router.on_startup.append(
             lambda: asyncio.create_task(self._on_startup(callback_url=callback_url)),
         )
