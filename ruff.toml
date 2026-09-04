@@ -43,7 +43,8 @@ ignore = [
     "ISC001",
     "TRY003",
     "EM101",
-    "EM102"
+    "EM102",
+    "CPY001"
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
