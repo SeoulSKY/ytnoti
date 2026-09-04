@@ -96,11 +96,40 @@ when this is the first change since the last release.
 
 ## Releasing
 
-The version lives in `pyproject.toml`, and `docs/conf.py` carries its own
-`release` string that has drifted before — update both, and check that the
-top of `docs/changelog.rst` already names that version. Creating a GitHub
-release triggers `.github/workflows/pypi.yml`, which builds and publishes to
-PyPI.
+Publishing is automated and irreversible: PyPI refuses a second upload of a
+version number, so everything below happens in order, and only when the
+maintainer asks for a release.
+
+1. Set the version in `pyproject.toml`, mirror it into `docs/conf.py`'s own
+   `release` string (it has drifted before), and run `uv lock` so the lock
+   file records it too. Confirm `docs/changelog.rst` already opens with that
+   version.
+2. Commit as `chore: bump up the version to X.Y.Z`.
+3. Tag that commit with a bare `git tag vX.Y.Z` — never `-a` and never `-m`,
+   so it stays a lightweight tag with an empty message like every existing
+   one — then push `main` and the tag.
+4. Create the GitHub release from the tag with
+   `gh release create vX.Y.Z --notes-file <file>`. The body is the changelog's
+   section for that version, with its `~~~` subsection underlines turned into
+   `#` headings and the `**Full Changelog**` compare link kept.
+5. Blank the release title, which every earlier release has as an empty
+   string: `gh api --method PATCH repos/SeoulSKY/ytnoti/releases/<id> -f
+   name=''`, with the id from
+   `gh api repos/SeoulSKY/ytnoti/releases/tags/vX.Y.Z --jq .id`. Passing
+   `--title ""` to `gh release create` does **not** do this — gh drops the
+   empty flag, the name stays null, and GitHub then titles the release with
+   the tagged commit's subject line instead of the tag.
+
+Creating the release is what publishes. `.github/workflows/pypi.yml` fires on
+`release: created`, runs `uv sync --dev --frozen`, `uv build` and
+`uv publish` against the `PYPI_TOKEN` secret, and takes well under a minute.
+Nothing gates it on the test, ruff or ty workflows — those run on push and
+pull request only — so the checks in **Commands** must be green *before* the
+release is created, not after. Watch the run with
+`gh run list --workflow=pypi.yml`.
+
+A release that has to be redone needs a new patch version; deleting the tag
+or the release does not free the version on PyPI.
 
 ## Commit messages
 
