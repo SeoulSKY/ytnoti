@@ -9,7 +9,7 @@ import pytest
 import respx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import ConnectError, Response
+from httpx import ConnectError, ReadTimeout, Request, Response
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier
@@ -507,6 +507,49 @@ async def test_request(notifier: AsyncYouTubeNotifier) -> None:
     type(notifier).is_ready = PropertyMock(return_value=True)
     with pytest.raises(HTTPError):
         await notifier._request([channel_id])
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_request_continues_after_failure(
+    notifier: AsyncYouTubeNotifier,
+) -> None:
+    """Test that the request method requests every channel even if some fail."""
+    requested = []
+
+    def side_effect(request: Request) -> Response:
+        requested.append(request)
+        if len(requested) == 1:
+            raise ReadTimeout("Timed out", request=request)
+        return Response(HTTPStatus.NO_CONTENT)
+
+    respx.post(REQUEST_URL).mock(side_effect=side_effect)
+
+    with pytest.raises(ReadTimeout):
+        await notifier._request(channel_ids)
+
+    assert len(requested) == len(channel_ids)
+
+
+def test_get_delay() -> None:
+    """Test the delay between the repeated runs of a task."""
+    interval = timedelta(days=1)
+
+    assert AsyncYouTubeNotifier._get_delay(interval, 0) == interval
+    assert (
+        AsyncYouTubeNotifier._get_delay(interval, 1)
+        == AsyncYouTubeNotifier._RETRY_INITIAL_INTERVAL
+    )
+    assert (
+        AsyncYouTubeNotifier._get_delay(interval, 2)
+        == AsyncYouTubeNotifier._RETRY_INITIAL_INTERVAL * 2
+    )
+
+    # The backoff never exceeds the interval, no matter how many failures
+    assert AsyncYouTubeNotifier._get_delay(interval, 1000) == interval
+    assert AsyncYouTubeNotifier._get_delay(timedelta(seconds=1), 5) == timedelta(
+        seconds=1
+    )
 
 
 def test_post(notifier: AsyncYouTubeNotifier) -> None:

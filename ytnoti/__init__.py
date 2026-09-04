@@ -41,7 +41,8 @@ from urllib.parse import urlparse
 import xmltodict
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
-from httpx import AsyncClient, ConnectError
+from httpx import AsyncClient, ConnectError, TimeoutException
+from httpx import HTTPError as HTTPXError
 from pyngrok import ngrok
 from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
@@ -72,6 +73,9 @@ class AsyncYouTubeNotifier:
 
     _ALL_LISTENER_KEY = "_all"
     _UPLOAD_TIMEDELTA_THRESHOLD = timedelta(seconds=20)
+    _HTTP_TIMEOUT = 30
+    _RETRY_INITIAL_INTERVAL = timedelta(minutes=1)
+    _RETRY_MAX_EXPONENT = 30
 
     @override
     def __init__(
@@ -116,6 +120,7 @@ class AsyncYouTubeNotifier:
         self._video_history = video_history or InMemoryVideoHistory()
         self._server: Server | None = None
         self._server_ready_event: asyncio.Event = asyncio.Event()
+        self._startup_task: Task[None] | None = None
         self._lock = asyncio.Lock()
 
     @property
@@ -404,9 +409,15 @@ class AsyncYouTubeNotifier:
         :param app: The FastAPI app instance to add the event handlers for.
         :param callback_url: The callback URL for the notifier.
         """
-        app.router.on_startup.append(
-            lambda: asyncio.create_task(self._on_startup(callback_url=callback_url)),
-        )
+
+        def on_startup() -> None:
+            # Keep a reference to the task so it is not garbage collected while
+            # it is running.
+            self._startup_task = asyncio.create_task(
+                self._on_startup(callback_url=callback_url)
+            )
+
+        app.router.on_startup.append(on_startup)
 
     async def _on_startup(
         self, *, callback_url: str, predicate: Callable[[], bool] | None = None
@@ -420,13 +431,13 @@ class AsyncYouTubeNotifier:
             await asyncio.sleep(0.1)
 
             try:
-                async with AsyncClient() as client:
+                async with AsyncClient(timeout=self._HTTP_TIMEOUT) as client:
                     response = await client.head(
                         callback_url, params={"hub.challenge": "1"}
                     )
                     if response.status_code == HTTPStatus.OK:
                         break
-            except ConnectError:
+            except (ConnectError, TimeoutException):
                 continue
 
         self._server_ready_event.set()
@@ -470,18 +481,47 @@ class AsyncYouTubeNotifier:
     ) -> None:
         """Repeatedly run a task every interval, even if the task fails.
 
+        If the task fails, it is retried after an exponential backoff instead of
+        after the full interval, so that a transient failure does not delay the
+        task until the next interval.
+
         :param task: The function to repeat
         :param interval: The interval in seconds to repeat the task
         :param predicate: An optional predicate function
             that returns True to continue
         """
+        failures = 0
+
         while not predicate or predicate():
             try:
                 await task()
             except Exception:
+                failures += 1
                 self._logger.exception("Failed to repeat task")
+            else:
+                failures = 0
 
-            await asyncio.sleep(interval.total_seconds())
+            delay = self._get_delay(interval, failures)
+            await asyncio.sleep(delay.total_seconds())
+
+    @classmethod
+    def _get_delay(cls, interval: timedelta, failures: int) -> timedelta:
+        """Get how long to wait before running a repeated task again.
+
+        :param interval: The interval to wait when the last run succeeded.
+        :param failures: The number of consecutive failures of the task.
+        :return: The interval if the last run succeeded, otherwise an exponential
+            backoff that never exceeds the interval.
+        """
+        if failures == 0:
+            return interval
+
+        # The exponent is capped to keep the backoff from overflowing. It is large
+        # enough that the backoff already exceeds any sane interval before then.
+        exponent = min(failures - 1, cls._RETRY_MAX_EXPONENT)
+        backoff = cls._RETRY_INITIAL_INTERVAL * 2**exponent
+
+        return min(interval, backoff)
 
     async def run(
         self,
@@ -577,7 +617,7 @@ class AsyncYouTubeNotifier:
         :param channel_ids: The channel IDs
         :raises ValueError: If the channel ID is invalid.
         """
-        async with AsyncClient() as client:
+        async with AsyncClient(timeout=AsyncYouTubeNotifier._HTTP_TIMEOUT) as client:
             for channel_id in channel_ids:
                 response = await client.head(
                     f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
@@ -645,6 +685,10 @@ class AsyncYouTubeNotifier:
     ) -> None:
         """Subscribe or unsubscribe to YouTube channels to receive push notifications.
 
+        Every channel is requested even if some of them fail, so that a failing
+        channel doesn't prevent the remaining ones from being requested. If any of
+        them failed, the first error is raised after all of them are requested.
+
         :param channel_ids: The channel ID(s) to subscribe or unsubscribe to.
         :param mode: The mode to use. Either 'subscribe' or 'unsubscribe'.
         :raises ValueError: If an invalid channel ID is provided.
@@ -652,45 +696,70 @@ class AsyncYouTubeNotifier:
             listening.
         :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
         """
-        for channel_id in channel_ids:
-            async with AsyncClient() as client:
-                self._logger.debug(
-                    "Sending %s request for channel: %s", mode, channel_id
-                )
+        error: Exception | None = None
 
-                response = await client.post(
-                    "https://pubsubhubbub.appspot.com",
-                    data={
-                        "hub.mode": mode,
-                        "hub.topic": f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}",
-                        "hub.callback": self._callback_url,
-                        "hub.verify": "sync",
-                        "hub.secret": self._password,
-                        "hub.lease_seconds": "",
-                        "hub.verify_token": "",
-                    },
-                    headers={"Content-type": "application/x-www-form-urlencoded"},
-                )
-
-            if response.status_code == HTTPStatus.CONFLICT:
-                if not self.is_ready:
-                    raise ConnectionError(
-                        f"Cannot {mode} while the server is not ready"
+        async with AsyncClient(timeout=self._HTTP_TIMEOUT) as client:
+            for channel_id in channel_ids:
+                try:
+                    await self._request_channel(client, channel_id, mode=mode)
+                except (HTTPError, HTTPXError) as ex:
+                    self._logger.warning(
+                        "Failed to %s channel: %s (%s)", mode, channel_id, ex
                     )
+                    error = error or ex
 
-                raise HTTPError(
-                    f"Failed to {mode} channel: {channel_id}. "
-                    f"The reason might be because {self._callback_url} is "
-                    f"inaccessible from the public internet",
-                    response.status_code,
-                )
+        if error is not None:
+            raise error
 
-            if response.status_code != HTTPStatus.NO_CONTENT:
-                raise HTTPError(
-                    f"Failed to {mode} channel: {channel_id}", response.status_code
-                )
+    async def _request_channel(
+        self,
+        client: AsyncClient,
+        channel_id: str,
+        *,
+        mode: Literal["subscribe", "unsubscribe"] = "subscribe",
+    ) -> None:
+        """Subscribe or unsubscribe to a YouTube channel.
 
-            self._logger.info("Successfully %sd channel: %s", mode, channel_id)
+        :param client: The client to send the request with.
+        :param channel_id: The channel ID to subscribe or unsubscribe to.
+        :param mode: The mode to use. Either 'subscribe' or 'unsubscribe'.
+        :raises ConnectionError: If this method is called while the server is not
+            listening.
+        :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
+        """
+        self._logger.debug("Sending %s request for channel: %s", mode, channel_id)
+
+        response = await client.post(
+            "https://pubsubhubbub.appspot.com",
+            data={
+                "hub.mode": mode,
+                "hub.topic": f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}",
+                "hub.callback": self._callback_url,
+                "hub.verify": "sync",
+                "hub.secret": self._password,
+                "hub.lease_seconds": "",
+                "hub.verify_token": "",
+            },
+            headers={"Content-type": "application/x-www-form-urlencoded"},
+        )
+
+        if response.status_code == HTTPStatus.CONFLICT:
+            if not self.is_ready:
+                raise ConnectionError(f"Cannot {mode} while the server is not ready")
+
+            raise HTTPError(
+                f"Failed to {mode} channel: {channel_id}. "
+                f"The reason might be because {self._callback_url} is "
+                f"inaccessible from the public internet",
+                response.status_code,
+            )
+
+        if response.status_code != HTTPStatus.NO_CONTENT:
+            raise HTTPError(
+                f"Failed to {mode} channel: {channel_id}", response.status_code
+            )
+
+        self._logger.info("Successfully %sd channel: %s", mode, channel_id)
 
     def stop(self) -> None:
         """Gracefully stop the notifier and ngrok (if used).

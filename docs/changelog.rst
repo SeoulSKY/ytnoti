@@ -1,6 +1,19 @@
 Changelog
 ==========
 
+v3.0.2
+------
+
+Fixes
+~~~~~
+
+* Fix that the requests to YouTube timed out after 5 seconds, which was often too short for a subscription request. They now time out after 30 seconds.
+* Fix that a single failing channel prevented the remaining channels from being subscribed or unsubscribed. Every channel is now requested, and the first error is raised once all of them are done.
+* Fix that a failed daily resubscription waited for a full day before being retried. It's now retried with an exponential backoff that starts at a minute.
+* Keep a reference to the task created when the notifier starts, so that it can't be garbage collected while running.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.1...v3.0.2
+
 v3.0.1
 ------
 
