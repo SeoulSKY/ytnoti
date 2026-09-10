@@ -424,6 +424,30 @@ async def test_on_startup(notifier: AsyncYouTubeNotifier) -> None:
         assert notifier._server_ready_event.is_set()
 
 
+@respx.mock
+@pytest.mark.asyncio
+async def test_on_startup_defers_the_first_request(
+    notifier: AsyncYouTubeNotifier,
+) -> None:
+    """Test that the on_start event handler makes the first request in the
+    repeated task, so that a failure of it is retried.
+    """
+    respx.head(CALLBACK_URL).mock(Response(HTTPStatus.OK))
+    route = respx.post(REQUEST_URL).mock(Response(HTTPStatus.SERVICE_UNAVAILABLE))
+    notifier._subscribed_ids.update(channel_ids)
+
+    with patch.object(notifier, "_repeat_task") as repeat_task:
+        await notifier._on_startup(callback_url=CALLBACK_URL)
+
+    assert not route.called
+
+    task = repeat_task.call_args.args[0]
+    with pytest.raises(HTTPError):
+        await task()
+
+    assert route.call_count == len(channel_ids)
+
+
 def test_setup_notifier(notifier: AsyncYouTubeNotifier) -> None:
     """Test setting up the notifier."""
     with patch("pyngrok.ngrok.connect") as mock_connect:

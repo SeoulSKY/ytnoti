@@ -441,11 +441,12 @@ class AsyncYouTubeNotifier:
                 continue
 
         self._server_ready_event.set()
-        await self._request(self._subscribed_ids)
 
         async def task() -> None:
             await self._request(self._subscribed_ids)
 
+        # The first run happens inside the repeated task, so that a failure of it
+        # is retried instead of leaving the notifier without any subscription.
         await self._repeat_task(task, timedelta(days=1))
 
     def _setup_notifier(

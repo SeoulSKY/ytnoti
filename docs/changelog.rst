@@ -1,6 +1,16 @@
 Changelog
 ==========
 
+v3.0.3
+------
+
+Fixes
+~~~~~
+
+* Fix that a failed subscription right after the notifier started left it running without ever subscribing again, so no notification ever arrived. It's now retried with the same exponential backoff as the daily resubscription.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.2...v3.0.3
+
 v3.0.2
 ------
 
