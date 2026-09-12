@@ -74,7 +74,7 @@ class AsyncYouTubeNotifier:
     _ALL_LISTENER_KEY = "_all"
     _UPLOAD_TIMEDELTA_THRESHOLD = timedelta(seconds=20)
     _HTTP_TIMEOUT = 30
-    _RETRY_INITIAL_INTERVAL = timedelta(minutes=1)
+    _RETRY_INITIAL_INTERVAL = timedelta(minutes=2)
     _RETRY_MAX_EXPONENT = 30
 
     @override
