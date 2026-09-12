@@ -30,3 +30,21 @@ class HTTPError(Exception):
     def __str__(self) -> str:
         """Return a string representation of the HTTPError object."""
         return f"Status code: {self.status_code}: {self.message}"
+
+class SubscribeError(Exception):
+    """Exception when a channel subscription fails."""
+
+    @override
+    def __init__(self, message: str, channel_id: str) -> None:
+        """Initialize the SubscribeError object.
+
+        :param message: The error message
+        :param channel_id: The channel ID that failed to subscribe
+        """
+        self.channel_id = channel_id
+        self.message = message
+
+    @override
+    def __str__(self) -> str:
+        """Return a string representation of the HTTPError object."""
+        return f"Subscription error: {self.channel_id}: {self.message}"
