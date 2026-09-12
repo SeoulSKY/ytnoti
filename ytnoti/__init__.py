@@ -621,7 +621,7 @@ class AsyncYouTubeNotifier:
         async with AsyncClient(timeout=AsyncYouTubeNotifier._HTTP_TIMEOUT) as client:
             for channel_id in channel_ids:
                 response = await client.head(
-                    f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+                    f"https://www.youtube.com/channel/{channel_id}"
                 )
                 if response.status_code != HTTPStatus.OK:
                     raise ValueError(f"Invalid channel ID: {channel_id}")
