@@ -428,8 +428,6 @@ class AsyncYouTubeNotifier:
             waiting for the server to be available.
         """
         while not predicate or predicate():
-            await asyncio.sleep(0.1)
-
             try:
                 async with AsyncClient(timeout=self._HTTP_TIMEOUT) as client:
                     response = await client.head(
@@ -438,7 +436,10 @@ class AsyncYouTubeNotifier:
                     if response.status_code == HTTPStatus.OK:
                         break
             except (ConnectError, TimeoutException):
-                continue
+                pass
+
+            self._logger.info("Callback URL test failed, retrying after 0.5s...")
+            await asyncio.sleep(0.5)
 
         self._server_ready_event.set()
 
