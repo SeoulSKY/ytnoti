@@ -10,6 +10,7 @@ Fixes
 * Fix that a newly uploaded video was often reported as an edit instead of an upload, so the upload listeners never ran for it. Whether a video is new is now decided by whether (Async)YouTubeNotifier has already seen it, rather than by how far apart YouTube set its published and updated times, which for a new video are routinely minutes apart.
 * Fix that only the videos reported as uploads were recorded in the ``VideoHistory``, which let the hub resending the same video be reported as an upload again. Every video is now recorded the first time it is seen.
 * Fix that ``FileVideoHistory`` appended a video to its file every time it was added, so repeatedly adding the same video pushed the other videos out and made the history hold fewer of them than ``num_videos``. Adding a video it already holds now has no effect, as it already did for ``InMemoryVideoHistory``.
+* Fix that (Async)YouTubeNotifier said nothing while it waited for its callback URL to become reachable on startup, so a callback URL that was never going to answer was indistinguishable from a notifier that had hung. Every failed attempt is now logged, and the URL is checked twice a second instead of ten times a second.
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.3...v3.0.4
 
