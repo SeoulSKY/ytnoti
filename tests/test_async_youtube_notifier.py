@@ -1,6 +1,7 @@
 """Contains the tests for the class AsyncYouTubeNotifier."""
 
 import asyncio
+import re
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import PropertyMock, patch
@@ -24,7 +25,7 @@ channel_ids = [
 
 channel_id = channel_ids[0]
 
-CHANNEL_ID_VERIFICATION_URL = "https://www.youtube.com/feeds/videos.xml"
+CHANNEL_ID_VERIFICATION_URL = re.compile("https://www.youtube.com/channel/.*")
 REQUEST_URL = "https://pubsubhubbub.appspot.com"
 
 # ruff: noqa: E501
