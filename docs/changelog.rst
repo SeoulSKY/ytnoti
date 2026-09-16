@@ -7,6 +7,7 @@ v3.0.4
 Fixes
 ~~~~~
 
+* Fix that (Async)YouTubeNotifier rejected valid YouTube notification timestamps using ``Z`` or a negative UTC offset, so those notifications failed with a server error. All RFC 3339 timestamp representations are now parsed, including fractional seconds.
 * Fix that a newly uploaded video was often reported as an edit instead of an upload, so the upload listeners never ran for it. Whether a video is new is now decided by whether (Async)YouTubeNotifier has already seen it, rather than by how far apart YouTube set its published and updated times, which for a new video are routinely minutes apart.
 * Fix that only the videos reported as uploads were recorded in the ``VideoHistory``, which let the hub resending the same video be reported as an upload again. Every video is now recorded the first time it is seen.
 * Fix that ``FileVideoHistory`` appended a video to its file every time it was added, so repeatedly adding the same video pushed the other videos out and made the history hold fewer of them than ``num_videos``. Adding a video it already holds now has no effect, as it already did for ``InMemoryVideoHistory``.

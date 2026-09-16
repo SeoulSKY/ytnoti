@@ -918,12 +918,16 @@ class AsyncYouTubeNotifier:
 
     @staticmethod
     def _parse_timestamp(timestamp: str) -> datetime:
-        time, zone = timestamp.split("+", 1)
+        """Parse an RFC 3339 timestamp.
 
-        # Remove fractional seconds if exists
-        time = time.split(".", 1)[0]
-
-        return datetime.strptime(f"{time}+{zone}", "%Y-%m-%dT%H:%M:%S%z")
+        :param timestamp: The timestamp to parse.
+        :return: The parsed timezone-aware datetime.
+        """
+        parsed = datetime.fromisoformat(timestamp)
+        if parsed.utcoffset() is None:
+            msg = "Timestamp must include a UTC offset"
+            raise ValueError(msg)
+        return parsed
 
     async def _is_authorized(self, request: Request) -> bool:
         if not self._password:

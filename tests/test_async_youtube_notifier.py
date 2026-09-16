@@ -538,11 +538,50 @@ def test_get(notifier: AsyncYouTubeNotifier) -> None:
     assert response.status_code == HTTPStatus.OK
 
 
-def test_parse_timestamp(notifier: AsyncYouTubeNotifier) -> None:
-    """Test parsing timestamp."""
-    timestamp = "2015-04-01T19:05:24.552394234+00:00"
-    parsed_timestamp = notifier._parse_timestamp(timestamp)
-    assert parsed_timestamp == datetime(2015, 4, 1, 19, 5, 24, tzinfo=UTC)
+@pytest.mark.parametrize(
+    ("timestamp", "expected"),
+    [
+        (
+            "2015-04-01T19:05:24.552394234+00:00",
+            datetime(2015, 4, 1, 19, 5, 24, 552394, tzinfo=UTC),
+        ),
+        (
+            "2015-04-01T19:05:24Z",
+            datetime(2015, 4, 1, 19, 5, 24, tzinfo=UTC),
+        ),
+        (
+            "2015-04-01T19:05:24.123Z",
+            datetime(2015, 4, 1, 19, 5, 24, 123000, tzinfo=UTC),
+        ),
+        (
+            "2015-04-01T19:05:24-05:00",
+            datetime.fromisoformat("2015-04-01T19:05:24-05:00"),
+        ),
+    ],
+)
+def test_parse_timestamp(
+    notifier: AsyncYouTubeNotifier,
+    timestamp: str,
+    expected: datetime,
+) -> None:
+    """Test parsing valid RFC 3339 timestamp representations."""
+    assert notifier._parse_timestamp(timestamp) == expected
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    [
+        "2015-04-01T19:05:24",
+        "not-a-timestamp",
+    ],
+)
+def test_parse_timestamp_rejects_invalid_rfc3339(
+    notifier: AsyncYouTubeNotifier,
+    timestamp: str,
+) -> None:
+    """Test rejecting timestamps without valid RFC 3339 timezone information."""
+    with pytest.raises(ValueError):
+        notifier._parse_timestamp(timestamp)
 
 
 @respx.mock
