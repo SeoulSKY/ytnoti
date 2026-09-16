@@ -1,6 +1,7 @@
 """Contains the tests for the class AsyncYouTubeNotifier."""
 
 import asyncio
+import urllib
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import PropertyMock, patch
@@ -13,7 +14,7 @@ from httpx import ConnectError, ReadTimeout, Request, Response
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier
-from ytnoti.errors import HTTPError
+from ytnoti.errors import HTTPError, SubscribeError
 from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
 
 channel_ids = [
@@ -205,28 +206,58 @@ def test_callback_url() -> None:
     assert notifier.callback_url is not None
 
 
+def _call_callback(client: TestClient, request: Request) -> Response:
+    qs = urllib.parse.parse_qs(request.content.decode("utf-8"))
+    response = client.get(
+        CALLBACK_URL,
+        params={
+            "hub.challenge": 1,
+            "hub.topic": qs["hub.topic"][0],
+            "hub.mode": qs["hub.mode"][0],
+            "hub.lease_seconds": qs.get("hub.lease_seconds", [86400 * 5])[0],
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+    return Response(HTTPStatus.NO_CONTENT)
+
+
 @respx.mock
 @pytest.mark.asyncio
-async def test_subscribe() -> None:
+async def test_subscribe(notifier: AsyncYouTubeNotifier) -> None:
     """Test the subscribe method of the AsyncYouTubeNotifier class."""
-    notifier = AsyncYouTubeNotifier()
+    client = TestClient(notifier._app)
+
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
+    idle_notifier = AsyncYouTubeNotifier()
 
     respx.head(CHANNEL_ID_VERIFICATION_URL)
     route = respx.post(REQUEST_URL)
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    route.mock(side_effect=do_callback)
 
-    await notifier.subscribe(channel_ids)
+    await idle_notifier.subscribe(channel_ids)
 
     assert route.call_count == 0, "Should not subscribe before running the notifier"
 
     route.reset()
 
-    notifier = AsyncYouTubeNotifier()
-
     type(notifier).is_ready = PropertyMock(return_value=True)
     await notifier.subscribe(channel_ids)
 
     assert route.call_count == len(channel_ids), "Should subscribe to each channel ID"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_subscribe_fail(notifier: AsyncYouTubeNotifier) -> None:
+    """Test the subscribe method of the AsyncYouTubeNotifier class."""
+    respx.head(CHANNEL_ID_VERIFICATION_URL)
+    route = respx.post(REQUEST_URL)
+    route.mock(Response(HTTPStatus.NO_CONTENT))
+
+    with pytest.raises(SubscribeError, check=lambda e: bool(str(e))):
+        await notifier.subscribe(channel_ids)
 
     route.reset()
 
@@ -241,12 +272,20 @@ async def test_subscribe() -> None:
 @pytest.mark.asyncio
 async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
     """Test the unsubscribe method of the AsyncYouTubeNotifier class."""
+    client = TestClient(notifier._app)
+
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
     respx.head(CHANNEL_ID_VERIFICATION_URL)
     route = respx.post(REQUEST_URL)
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    route.mock(side_effect=do_callback)
 
     type(notifier).is_ready = PropertyMock(return_value=True)
 
+    expiry = datetime.now(tz=UTC) + timedelta(days=1)
+    for channel_id in channel_ids:
+        notifier._active_subscriptions[channel_id] = expiry
     notifier._subscribed_ids.update(channel_ids)
     await notifier.unsubscribe(channel_ids)
 
@@ -534,7 +573,10 @@ def test_get(notifier: AsyncYouTubeNotifier) -> None:
     response = client.get(CALLBACK_URL)
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
-    response = client.get(CALLBACK_URL, params={"hub.challenge": 1})
+    response = client.get(
+        CALLBACK_URL,
+        params={"hub.challenge": 1, "hub.topic": "foo", "hub.mode": "subscribe"},
+    )
     assert response.status_code == HTTPStatus.OK
 
 
@@ -549,17 +591,29 @@ def test_parse_timestamp(notifier: AsyncYouTubeNotifier) -> None:
 @pytest.mark.asyncio
 async def test_request(notifier: AsyncYouTubeNotifier) -> None:
     """Test the request method of the AsyncYouTubeNotifier class."""
-    route = respx.post(REQUEST_URL)
+    client = TestClient(notifier._app)
 
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
+    route = respx.post(REQUEST_URL)
+    route.mock(side_effect=do_callback)
     await notifier._request([channel_id])
+
+    assert route.call_count == 1, "Should call callback on first _request()"
+    await notifier._request([channel_id])
+    assert route.call_count == 1, (
+        "Should not call callback on repeat _request() before expiry"
+    )
+
+    notifier._active_subscriptions = {}
 
     route.mock(Response(HTTPStatus.BAD_REQUEST))
     with pytest.raises(HTTPError):
         await notifier._request([channel_id])
 
     type(notifier).is_ready = PropertyMock(return_value=False)
-    route.mock(Response(HTTPStatus.CONFLICT))
+    route.mock(Response(HTTPStatus.CONFLICT), side_effect=None)
     with pytest.raises(ConnectionError):
         await notifier._request([channel_id])
 
@@ -575,12 +629,13 @@ async def test_request_continues_after_failure(
 ) -> None:
     """Test that the request method requests every channel even if some fail."""
     requested = []
+    client = TestClient(notifier._app)
 
     def side_effect(request: Request) -> Response:
         requested.append(request)
         if len(requested) == 1:
             raise ReadTimeout("Timed out", request=request)
-        return Response(HTTPStatus.NO_CONTENT)
+        return _call_callback(client, request)
 
     respx.post(REQUEST_URL).mock(side_effect=side_effect)
 

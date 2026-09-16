@@ -15,6 +15,7 @@ __all__ = [
 import asyncio
 import hmac
 import logging
+import random
 import secrets
 import signal
 import string
@@ -48,7 +49,7 @@ from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
-from ytnoti.errors import HTTPError
+from ytnoti.errors import HTTPError, SubscribeError
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
 from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
 from ytnoti.types import AnyListener, DeleteListener, EditListener, UploadListener
@@ -74,8 +75,13 @@ class AsyncYouTubeNotifier:
     _ALL_LISTENER_KEY = "_all"
     _UPLOAD_PUBLISHED_THRESHOLD = timedelta(minutes=30)
     _HTTP_TIMEOUT = 30
-    _RETRY_INITIAL_INTERVAL = timedelta(minutes=1)
+    _RETRY_INITIAL_INTERVAL = timedelta(minutes=2)
     _RETRY_MAX_EXPONENT = 30
+    # Check for re-subscriptions every 30 minutes
+    _RESUBSCRIBE_INTERVAL = timedelta(minutes=30)
+    # Re-subscribe at 70% to 80% of the lease time
+    _RESUBSCRIBE_MIN_FRAC = 0.7
+    _RESUBSCRIBE_MAX_FRAC = 0.8
 
     @override
     def __init__(
@@ -122,6 +128,8 @@ class AsyncYouTubeNotifier:
         self._server_ready_event: asyncio.Event = asyncio.Event()
         self._startup_task: Task[None] | None = None
         self._lock = asyncio.Lock()
+        self._hub_lease_time: dict[str, int] = {}
+        self._active_subscriptions: dict[str, datetime] = {}
 
     @property
     def callback_url(self) -> str | None:
@@ -431,7 +439,7 @@ class AsyncYouTubeNotifier:
             try:
                 async with AsyncClient(timeout=self._HTTP_TIMEOUT) as client:
                     response = await client.head(
-                        callback_url, params={"hub.challenge": "1"}
+                        callback_url, params={"startup_test": "1"}
                     )
                     if response.status_code == HTTPStatus.OK:
                         break
@@ -448,7 +456,7 @@ class AsyncYouTubeNotifier:
 
         # The first run happens inside the repeated task, so that a failure of it
         # is retried instead of leaving the notifier without any subscription.
-        await self._repeat_task(task, timedelta(days=1))
+        await self._repeat_task(task, self._RESUBSCRIBE_INTERVAL)
 
     def _setup_notifier(
         self,
@@ -729,13 +737,22 @@ class AsyncYouTubeNotifier:
             listening.
         :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
         """
+        if mode == "subscribe":
+            expiry = self._active_subscriptions.get(channel_id, None)
+            if expiry is not None and expiry > datetime.now(tz=UTC):
+                # Already subscribed and re-subscription not due
+                return
+
         self._logger.debug("Sending %s request for channel: %s", mode, channel_id)
+
+        topic = f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}"
+        self._hub_lease_time.pop(topic, None)
 
         response = await client.post(
             "https://pubsubhubbub.appspot.com",
             data={
                 "hub.mode": mode,
-                "hub.topic": f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}",
+                "hub.topic": topic,
                 "hub.callback": self._callback_url,
                 "hub.verify": "sync",
                 "hub.secret": self._password,
@@ -761,7 +778,30 @@ class AsyncYouTubeNotifier:
                 f"Failed to {mode} channel: {channel_id}", response.status_code
             )
 
-        self._logger.info("Successfully %sd channel: %s", mode, channel_id)
+        if mode == "subscribe":
+            lease_time = self._hub_lease_time.pop(topic, None)
+
+            if lease_time is None:
+                raise SubscribeError("Hub callback was not received", channel_id)
+
+            refresh = datetime.now(tz=UTC) + timedelta(
+                seconds=lease_time
+                * random.uniform(self._RESUBSCRIBE_MIN_FRAC, self._RESUBSCRIBE_MAX_FRAC)  # noqa: S311
+            )
+
+            self._active_subscriptions[channel_id] = refresh
+
+            self._logger.info(
+                "Successfully subscribed channel: %s (next refresh: %s)",
+                channel_id,
+                refresh.isoformat(),
+            )
+
+        if mode == "unsubscribe":
+            if channel_id in self._active_subscriptions:
+                self._active_subscriptions.pop(channel_id, None)
+
+            self._logger.info("Successfully unsubscribed channel: %s", channel_id)
 
     def stop(self) -> None:
         """Gracefully stop the notifier and ngrok (if used).
@@ -782,12 +822,36 @@ class AsyncYouTubeNotifier:
         """Perform a task after the notifier is stopped."""
         self.stop()
 
-    @staticmethod
-    async def _get(request: Request) -> Response:
+    async def _get(self, request: Request) -> Response:
         """Handle a challenge from the Google pubsubhubbub server."""
+        if request.query_params.get("startup_test") is not None:
+            return Response("OK")
+
         challenge = request.query_params.get("hub.challenge")
-        if challenge is None:
+        topic = request.query_params.get("hub.topic")
+        mode = request.query_params.get("hub.mode")
+
+        if challenge is None or topic is None or mode is None:
             return Response(status_code=HTTPStatus.BAD_REQUEST)
+
+        if mode == "subscribe":
+            lease_seconds = int(
+                request.query_params.get("hub.lease_seconds", 2 * 86400)
+            )
+
+            self._logger.debug(
+                "Received subscribe hub callback for topic %s: lease time is %d sec",
+                topic,
+                lease_seconds,
+            )
+            self._hub_lease_time[topic] = lease_seconds
+
+        else:
+            self._logger.debug(
+                "Received unsubscribe hub callback for topic %s",
+                topic,
+            )
+            self._hub_lease_time.pop(topic, None)
 
         return Response(challenge)
 
