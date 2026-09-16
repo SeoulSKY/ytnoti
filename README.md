@@ -29,9 +29,9 @@ upload, edit, delete, and live stream easily and efficiently.
 
 # 🛠️ How it works
 
-This library uses YouTube Data API v3 via
-[PubSubHubbub](https://developers.google.com/youtube/v3/guides/push_notifications) to receive push
-notifications, so you can receive notifications in real time without constantly polling the YouTube API.
+This library uses YouTube Data API v3 via [WebSub](https://www.w3.org/TR/websub/) (called
+[PubSubHubbub](https://developers.google.com/youtube/v3/guides/push_notifications) in YouTube's docs) to
+receive push notifications, so you can receive notifications in real time without constantly polling the YouTube API.
 
 In addition, this method doesn't require any API key for YouTube Data API, so you can use this library **without any quota limit**.
 
