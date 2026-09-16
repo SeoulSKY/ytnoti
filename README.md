@@ -41,12 +41,12 @@ upload, edit, delete, and live stream easily and efficiently.
 
 ## ✨ Features
 
-- **Real-time push, not polling** — YouTube's hub calls you the moment a video changes.
-- **No API key, no quota** — nothing to provision, nothing to run out of.
-- **Async and sync** — use `AsyncYouTubeNotifier`, or `YouTubeNotifier` if you don't run an event loop.
-- **Listeners for every event** — `@notifier.upload()`, `@notifier.edit()`, `@notifier.delete()` and `@notifier.any()`, globally or per channel.
-- **Brings its own server, or joins yours** — pass your existing `FastAPI` app and `ytnoti` mounts onto it.
-- **Verified callbacks** — every notification is checked against an HMAC signature before a listener sees it.
+- **Real-time push, not polling.** YouTube's hub calls you the moment a video changes.
+- **No API key, no quota.** There is nothing to provision and nothing to run out of.
+- **Async and sync.** Use `AsyncYouTubeNotifier`, or `YouTubeNotifier` if you don't run an event loop.
+- **Listeners for every event.** Register `@notifier.upload()`, `@notifier.edit()`, `@notifier.delete()` or `@notifier.any()`, globally or per channel.
+- **Brings its own server, or joins yours.** Pass your existing `FastAPI` app and `ytnoti` mounts onto it.
+- **Verified callbacks.** Every notification is checked against an HMAC signature before a listener sees it.
 
 ## 🛠️ How it works
 
@@ -119,7 +119,7 @@ on my Discord server.
 
 ## 🤝 Contributing
 
-Contributions of every size are welcome — a bug report, a typo fix in the docs, or a new feature.
+Contributions of every size are welcome, whether it's a bug report, a typo fix in the docs, or a new feature.
 Read [CONTRIBUTING.md](https://github.com/SeoulSKY/ytnoti/blob/main/CONTRIBUTING.md) to set up the project with
 [uv](https://docs.astral.sh/uv/) in a few commands, or browse the
 [good first issues](https://github.com/SeoulSKY/ytnoti/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
