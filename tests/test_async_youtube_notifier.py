@@ -14,7 +14,7 @@ from httpx import ConnectError, ReadTimeout, Request, Response
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier
-from ytnoti.errors import HTTPError
+from ytnoti.errors import HTTPError, SubscribeError
 from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
 
 channel_ids = [
@@ -211,6 +211,18 @@ async def test_subscribe(notifier: AsyncYouTubeNotifier) -> None:
     await notifier.subscribe(channel_ids)
 
     assert route.call_count == len(channel_ids), "Should subscribe to each channel ID"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_subscribe_fail(notifier: AsyncYouTubeNotifier) -> None:
+    """Test the subscribe method of the AsyncYouTubeNotifier class."""
+    respx.head(CHANNEL_ID_VERIFICATION_URL)
+    route = respx.post(REQUEST_URL)
+    route.mock(Response(HTTPStatus.NO_CONTENT))
+
+    with pytest.raises(SubscribeError, check=lambda e: bool(str(e))):
+        await notifier.subscribe(channel_ids)
 
     route.reset()
 
