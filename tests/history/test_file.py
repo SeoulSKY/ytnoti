@@ -65,16 +65,26 @@ async def test_truncate(history: FileVideoHistory) -> None:
 async def test_add(history: FileVideoHistory) -> None:
     """Test the add method of the FileVideoHistory class."""
     video = get_video()
+    video.id = "-1"
     path = history._get_path(video.channel)
 
     await history.add(video)
+    await history.add(video)
 
     with path.open("r") as file:
-        assert file.read().strip() == video.id
+        assert file.readlines() == [f"{video.id}\n"]
 
-    for _ in range(NUM_VIDEOS + 5):
-        await history.add(video)
+    for i in range(NUM_VIDEOS):
+        new_video = get_video()
+        new_video.id = str(i)
+        await history.add(new_video)
 
+    # The oldest videos are evicted once the file is full, and adding the same
+    # video over and over can no longer push the others out.
     with path.open("r") as file:
-        lines = file.readlines()
-        assert len(lines) == NUM_VIDEOS
+        lines = [line.strip() for line in file]
+
+    assert len(lines) == NUM_VIDEOS
+    assert video.id not in lines
+    assert not await history.has(video)
+    assert await history.has(new_video)

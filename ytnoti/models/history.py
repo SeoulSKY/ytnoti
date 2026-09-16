@@ -20,6 +20,10 @@ class VideoHistory(ABC):
     async def add(self, video: Video) -> None:
         """Add a video to the history.
 
+        Adding a video that is already in the history must have no effect, so
+        that an implementation which evicts its oldest entries cannot be made
+        to forget other videos by adding the same one repeatedly.
+
         :param video: The video to add.
         """
 
@@ -61,6 +65,8 @@ class InMemoryVideoHistory(VideoHistory):
 
     async def add(self, video: Video) -> None:
         """Add a video to the history.
+
+        Adding a video that is already in the history has no effect.
 
         :param video: The video to add.
         """
@@ -122,8 +128,31 @@ class FileVideoHistory(VideoHistory):
         async with aiofiles.open(path, "w", encoding="utf-8") as file:
             await file.writelines(lines[-self._num_videos :])
 
+    async def _contains(self, video: Video) -> bool:
+        """Check if a video is in the history file of its channel.
+
+        The caller must hold the lock.
+
+        :param video: The video to check.
+        :return: True if the video is in the history file, False otherwise.
+        """
+        path = self._get_path(video.channel)
+
+        if not await ospath.exists(path):
+            return False
+
+        async with aiofiles.open(path, encoding="utf-8") as file:
+            async for line in file:
+                if line.strip() == video.id:
+                    return True
+
+        return False
+
     async def add(self, video: Video) -> None:
         """Add a video to the history.
+
+        Adding a video that is already in the history has no effect.
+
         :param video: The video to add.
         """
         await os.wrap(self._dir_path.mkdir)(parents=True, exist_ok=True)
@@ -132,6 +161,13 @@ class FileVideoHistory(VideoHistory):
 
         async with self._lock:
             await os.makedirs(path.parent, exist_ok=True)
+
+            if await self._contains(video):
+                self._logger.debug(
+                    "Skipping to add video (%s) that already exists in history",
+                    video.id,
+                )
+                return
 
             async with aiofiles.open(path, "a", encoding="utf-8") as file:
                 self._logger.debug("Adding video (%s) to history at %s", video.id, path)
@@ -143,16 +179,7 @@ class FileVideoHistory(VideoHistory):
         """Check if a video is in the history.
 
         :param video: The video to check.
+        :return: True if the video is in the history, False otherwise.
         """
-        path = self._get_path(video.channel)
-
         async with self._lock:
-            if not await ospath.exists(path):
-                return False
-
-            async with aiofiles.open(path, encoding="utf-8") as file:
-                async for line in file:
-                    if line.strip() == video.id:
-                        return True
-
-            return False
+            return await self._contains(video)
