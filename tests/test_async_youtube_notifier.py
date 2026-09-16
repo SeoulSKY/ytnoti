@@ -237,12 +237,20 @@ async def test_subscribe_fail(notifier: AsyncYouTubeNotifier) -> None:
 @pytest.mark.asyncio
 async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
     """Test the unsubscribe method of the AsyncYouTubeNotifier class."""
+    client = TestClient(notifier._app)
+
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
     respx.head(CHANNEL_ID_VERIFICATION_URL)
     route = respx.post(REQUEST_URL)
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    route.mock(side_effect=do_callback)
 
     type(notifier).is_ready = PropertyMock(return_value=True)
 
+    expiry = datetime.now(tz=UTC) + timedelta(days=1)
+    for channel_id in channel_ids:
+        notifier._active_subscriptions[channel_id] = expiry
     notifier._subscribed_ids.update(channel_ids)
     await notifier.unsubscribe(channel_ids)
 
