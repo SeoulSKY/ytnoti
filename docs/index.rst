@@ -46,14 +46,22 @@ ytnoti
 `ytnoti` is designed to help you receive YouTube push notifications in real-time for video
 upload, edit, delete, and live stream easily and efficiently.
 
+✨ Features
+-------------
+
+- **Real-time push, not polling** — YouTube's hub calls you the moment a video changes.
+- **No API key, no quota** — nothing to provision, nothing to run out of.
+- **Async and sync** — use :doc:`classes/async_youtube_notifier`, or :doc:`classes/youtube_notifier` if you don't run an event loop.
+- **Listeners for every event** — ``@notifier.upload()``, ``@notifier.edit()``, ``@notifier.delete()`` and ``@notifier.any()``, globally or per channel.
+- **Brings its own server, or joins yours** — pass your existing ``FastAPI`` app and ``ytnoti`` mounts onto it.
+- **Verified callbacks** — every notification is checked against an HMAC signature before a listener sees it.
+
 🛠️ How it works
 ----------------
 
 This library uses YouTube Data API v3 via `WebSub <https://www.w3.org/TR/websub/>`_ (called
 `PubSubHubbub <https://developers.google.com/youtube/v3/guides/push_notifications>`_ in YouTube's docs) to
 receive push notifications, so you can receive notifications in real-time without constantly polling the YouTube API.
-
-In addition, this method doesn't require any API key for YouTube Data API, so you can use this library **without any quota limit**.
 
 💻 Installation
 ------------------
@@ -116,6 +124,25 @@ If you have any questions about this library please visit my Discord server.
 .. image:: http://invidget.switchblade.xyz/qvCdWEtqgB
    :target: https://discord.gg/qvCdWEtqgB
    :alt: Discord server
+
+
+🤝 Contributing
+---------------
+
+Contributions of every size are welcome — a bug report, a typo fix in the docs, or a new feature.
+Read `CONTRIBUTING.md <https://github.com/SeoulSKY/ytnoti/blob/main/CONTRIBUTING.md>`_ to set up the project with
+`uv <https://docs.astral.sh/uv/>`_ in a few commands, or browse the
+`good first issues <https://github.com/SeoulSKY/ytnoti/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22>`_
+to find somewhere to start.
+
+🌟 Contributors
+~~~~~~~~~~~~~~~~
+
+Thanks to everyone who has contributed to ``ytnoti``!
+
+.. image:: https://contrib.rocks/image?repo=SeoulSKY/ytnoti
+   :target: https://github.com/SeoulSKY/ytnoti/graphs/contributors
+   :alt: Contributors
 
 
 📄 License
