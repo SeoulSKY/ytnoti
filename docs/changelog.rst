@@ -1,6 +1,17 @@
 Changelog
 ==========
 
+v3.0.4
+------
+
+Fixes
+~~~~~
+
+* Fix that a newly uploaded video was often reported as an edit instead of an upload, so the upload listeners never ran for it. Whether a video is new is now decided by whether (Async)YouTubeNotifier has already seen it, rather than by how far apart YouTube set its published and updated times, which for a new video are routinely minutes apart.
+* Fix that only the videos reported as uploads were recorded in the ``VideoHistory``, which let the hub resending the same video be reported as an upload again. Every video is now recorded the first time it is seen.
+
+**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.3...v3.0.4
+
 v3.0.3
 ------
 

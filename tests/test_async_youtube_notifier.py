@@ -29,6 +29,8 @@ REQUEST_URL = "https://pubsubhubbub.appspot.com"
 
 # ruff: noqa: E501
 
+published_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f+00:00")
+
 xmls = [
     f"""
     <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
@@ -46,8 +48,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
     </feed>
     """,
@@ -70,8 +72,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
     </feed>
     """,
@@ -91,8 +93,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
       <entry>
         <id>yt:video:VIDEO_ID</id>
@@ -104,8 +106,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
     </feed>
     """,
@@ -121,6 +123,39 @@ xmls = [
     </feed>
     """,
 ]
+
+
+def get_feed(*, published: datetime, updated: datetime, title: str) -> str:
+    """Create the body of a push notification for a video.
+
+    :param published: The time the video was published.
+    :param updated: The time the entry of the video was last updated.
+    :param title: The title of the video.
+    :return: The XML body of the notification.
+    """
+    fmt = "%Y-%m-%dT%H:%M:%S+00:00"
+
+    return f"""
+    <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
+      <link rel="hub" href="https://pubsubhubbub.appspot.com"/>
+      <link rel="self" href="https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}"/>
+      <title>YouTube video feed</title>
+      <updated>{updated.strftime(fmt)}</updated>
+      <entry>
+        <id>yt:video:VIDEO_ID</id>
+        <yt:videoId>VIDEO_ID</yt:videoId>
+        <yt:channelId>{channel_id}</yt:channelId>
+        <title>{title}</title>
+        <link rel="alternate" href="http://www.youtube.com/watch?v=VIDEO_ID"/>
+        <author>
+         <name>Channel title</name>
+         <uri>http://www.youtube.com/channel/{channel_id}</uri>
+        </author>
+        <published>{published.strftime(fmt)}</published>
+        <updated>{updated.strftime(fmt)}</updated>
+      </entry>
+    </feed>
+    """
 
 
 @pytest.fixture
@@ -613,46 +648,99 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
     notifier._password = password
 
 
-@pytest.mark.asyncio
-async def test_classify(notifier: AsyncYouTubeNotifier) -> None:
+def test_classify(notifier: AsyncYouTubeNotifier) -> None:
     """Test the classify method of the AsyncYouTubeNotifier class."""
-    upload_timestamp = Timestamp(
-        published=datetime.now(UTC),
-        updated=datetime.now(UTC)
-        + AsyncYouTubeNotifier._UPLOAD_TIMEDELTA_THRESHOLD
-        - timedelta(seconds=1),
-    )
+    published = datetime.now(UTC)
 
-    edit_timestamp = Timestamp(
-        published=datetime.now(UTC),
-        updated=datetime.now(UTC)
-        + AsyncYouTubeNotifier._UPLOAD_TIMEDELTA_THRESHOLD
-        + timedelta(seconds=1),
+    channel = Channel(
+        id="CHANNEL_ID",
+        name="Channel title",
+        url="http://www.youtube.com/channel/CHANNEL_ID",
     )
 
     video = Video(
         id="VIDEO_ID",
         title="Video title",
         url="http://www.youtube.com/watch?v=VIDEO_ID",
-        timestamp=upload_timestamp,
-        channel=Channel(
-            id="CHANNEL_ID",
-            name="Channel title",
-            url="http://www.youtube.com/channel/CHANNEL_ID",
-        ),
+        timestamp=Timestamp(published=published, updated=published),
+        channel=channel,
     )
 
-    video.timestamp = upload_timestamp
-    assert await notifier._classify(video) == "upload"
-    video.timestamp = edit_timestamp
-    assert await notifier._classify(video) == "edit"
+    assert notifier._classify(video, in_history=False) == "upload"
 
-    await notifier._video_history.add(video)
+    # YouTube keeps moving the updated timestamp away from the published one
+    # while it settles a new video, which says nothing about it being an edit.
+    video.timestamp.updated = published + timedelta(minutes=8)
+    assert notifier._classify(video, in_history=False) == "upload"
 
-    video.timestamp = upload_timestamp
-    assert await notifier._classify(video) == "edit"
-    video.timestamp = edit_timestamp
-    assert await notifier._classify(video) == "edit"
+    # Every notification after the first one is an edit.
+    assert notifier._classify(video, in_history=True) == "edit"
+
+    # A video the history has never seen is an edit if it is too old to have
+    # just been uploaded, since the history cannot reach back far enough.
+    old = Video(
+        id="OLD_VIDEO_ID",
+        title="Old video title",
+        url="http://www.youtube.com/watch?v=OLD_VIDEO_ID",
+        timestamp=Timestamp(
+            published=published
+            - AsyncYouTubeNotifier._UPLOAD_PUBLISHED_THRESHOLD
+            - timedelta(seconds=1),
+            updated=published,
+        ),
+        channel=channel,
+    )
+
+    assert notifier._classify(old, in_history=False) == "edit"
+
+
+def test_post_classifies_the_first_notification_as_an_upload(
+    notifier: AsyncYouTubeNotifier,
+) -> None:
+    """Test that a new video is an upload however late YouTube updated it."""
+    notifier._subscribed_ids.add(channel_id)
+
+    uploads: list[Video] = []
+    edits: list[Video] = []
+
+    @notifier.upload()
+    async def listener(video: Video) -> None:
+        uploads.append(video)
+
+    @notifier.edit()
+    async def listener(video: Video) -> None:
+        edits.append(video)
+
+    # The hub sent the same new video four times, the last two of them after
+    # its title had been edited.
+    published = datetime.now(UTC)
+    notifications = [
+        (timedelta(minutes=2), "Video title"),
+        (timedelta(minutes=5), "Video title"),
+        (timedelta(minutes=16), "Edited video title"),
+        (timedelta(minutes=16), "Edited video title"),
+    ]
+
+    client = TestClient(notifier._app)
+    with patch.object(
+        notifier._video_history, "add", wraps=notifier._video_history.add
+    ) as mock_add:
+        for delay, title in notifications:
+            response = client.post(
+                CALLBACK_URL,
+                headers={"Content-Type": "application/xml"},
+                content=get_feed(
+                    published=published, updated=published + delay, title=title
+                ),
+            )
+            assert response.status_code == HTTPStatus.NO_CONTENT
+
+        # The video is recorded once, however many times the hub resends it, so
+        # a history that evicts its oldest entries keeps holding as many videos.
+        mock_add.assert_awaited_once()
+
+    assert len(uploads) == 1
+    assert len(edits) == len(notifications) - 1
 
 
 @pytest.mark.asyncio

@@ -31,7 +31,7 @@ from collections.abc import (
     Iterator,
 )
 from contextlib import asynccontextmanager, contextmanager, suppress
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from pyexpat import ExpatError
 from threading import Thread
@@ -72,7 +72,7 @@ class AsyncYouTubeNotifier:
     """
 
     _ALL_LISTENER_KEY = "_all"
-    _UPLOAD_TIMEDELTA_THRESHOLD = timedelta(seconds=20)
+    _UPLOAD_PUBLISHED_THRESHOLD = timedelta(minutes=30)
     _HTTP_TIMEOUT = 30
     _RETRY_INITIAL_INTERVAL = timedelta(minutes=1)
     _RETRY_MAX_EXPONENT = 30
@@ -873,9 +873,10 @@ class AsyncYouTubeNotifier:
                 )
 
                 async with self._lock:
-                    kind = await self._classify(video)
+                    in_history = await self._video_history.has(video)
+                    kind = self._classify(video, in_history=in_history)
 
-                    if kind == "upload":
+                    if not in_history:
                         await self._video_history.add(video)
 
                 self._logger.debug("Classified video (%s) as %s", video.id, kind)
@@ -894,14 +895,22 @@ class AsyncYouTubeNotifier:
 
         return Response(status_code=HTTPStatus.NO_CONTENT)
 
-    async def _classify(self, video: Video) -> Literal["upload", "edit"]:
-        if await self._video_history.has(video):
+    def _classify(self, video: Video, *, in_history: bool) -> Literal["upload", "edit"]:
+        """Classify a notification as a new upload or an edit of an existing video.
+
+        :param video: The video the notification is about.
+        :param in_history: Whether the video is already in the video history.
+        :return: "upload" if this is the first notification for the video,
+            "edit" otherwise.
+        """
+        if in_history:
             return "edit"
 
-        if (
-            video.timestamp.updated - video.timestamp.published
-            <= self._UPLOAD_TIMEDELTA_THRESHOLD
-        ):
+        # The video is not in the history, so this is either its first
+        # notification or the history no longer reaches back far enough to hold
+        # it. Only a video published recently can still be an upload.
+        age = datetime.now(UTC) - video.timestamp.published
+        if age <= self._UPLOAD_PUBLISHED_THRESHOLD:
             return "upload"
 
         return "edit"

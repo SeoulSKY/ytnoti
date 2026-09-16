@@ -80,6 +80,8 @@ Since YouTube Data API doesn't provide information whether the notification is f
 ``(Async)YouTubeNotifier`` uses ``InMemoryVideoHistory`` by default to keep track of the video history.
 If the video is not in the history, it will be considered as a new video.
 Otherwise, it will be considered as an edited video.
+As a safeguard for a history that doesn't reach far enough back, a video that YouTube published
+more than 30 minutes ago is always considered as an edited video.
 
 The library provides ``FileVideoHistory`` class that saves the video history to files. To use it, pass it to the ``video_history`` parameter.
 
