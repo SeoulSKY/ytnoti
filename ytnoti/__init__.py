@@ -738,7 +738,7 @@ class AsyncYouTubeNotifier:
                 "hub.callback": self._callback_url,
                 "hub.verify": "sync",
                 "hub.secret": self._password,
-                "hub.lease_seconds": "",
+                "hub.lease_seconds": str(86400 * 10),
                 "hub.verify_token": "",
             },
             headers={"Content-type": "application/x-www-form-urlencoded"},
