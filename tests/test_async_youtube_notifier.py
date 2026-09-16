@@ -565,6 +565,12 @@ async def test_request(notifier: AsyncYouTubeNotifier) -> None:
     route.mock(side_effect=do_callback)
     await notifier._request([channel_id])
 
+    assert route.call_count == 1, "Should call callback on first _request()"
+    await notifier._request([channel_id])
+    assert route.call_count == 1, (
+        "Should not call callback on repeat _request() before expiry"
+    )
+
     notifier._active_subscriptions = {}
 
     route.mock(Response(HTTPStatus.BAD_REQUEST))
