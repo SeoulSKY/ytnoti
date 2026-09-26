@@ -2,7 +2,7 @@
 
 import asyncio
 import re
-import urllib
+import urllib.parse
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -304,6 +304,9 @@ async def test_subscribe(notifier: AsyncYouTubeNotifier) -> None:
     await notifier.subscribe(channel_ids)
 
     assert route.call_count == len(channel_ids), "Should subscribe to each channel ID"
+
+    qs = urllib.parse.parse_qs(route.calls.last.request.content.decode("utf-8"))
+    assert qs["hub.lease_seconds"] == ["864000"], "Should request a 10-day lease"
 
 
 @respx.mock
@@ -642,6 +645,23 @@ def test_get(notifier: AsyncYouTubeNotifier) -> None:
         params={"hub.challenge": 1, "hub.topic": "foo", "hub.mode": "subscribe"},
     )
     assert response.status_code == HTTPStatus.OK
+    assert notifier._hub_lease_time["foo"] == timedelta(days=2), (
+        "Should assume the fallback lease when the hub omits one"
+    )
+
+    response = client.get(
+        CALLBACK_URL,
+        params={
+            "hub.challenge": 1,
+            "hub.topic": "foo",
+            "hub.mode": "subscribe",
+            "hub.lease_seconds": 432000,
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert notifier._hub_lease_time["foo"] == timedelta(days=5), (
+        "Should record the lease the hub granted"
+    )
 
 
 @pytest.mark.parametrize(

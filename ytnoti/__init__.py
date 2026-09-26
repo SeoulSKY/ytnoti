@@ -82,6 +82,8 @@ class AsyncYouTubeNotifier:
     # Re-subscribe at 70% to 80% of the lease time
     _RESUBSCRIBE_MIN_FRAC = 0.7
     _RESUBSCRIBE_MAX_FRAC = 0.8
+    _REQUESTED_LEASE = timedelta(days=10)
+    _FALLBACK_LEASE = timedelta(days=2)
 
     @override
     def __init__(
@@ -128,7 +130,7 @@ class AsyncYouTubeNotifier:
         self._server_ready_event: asyncio.Event = asyncio.Event()
         self._startup_task: Task[None] | None = None
         self._lock = asyncio.Lock()
-        self._hub_lease_time: dict[str, int] = {}
+        self._hub_lease_time: dict[str, timedelta] = {}
         self._active_subscriptions: dict[str, datetime] = {}
 
     @property
@@ -763,7 +765,7 @@ class AsyncYouTubeNotifier:
                 "hub.callback": self._callback_url,
                 "hub.verify": "sync",
                 "hub.secret": self._password,
-                "hub.lease_seconds": str(86400 * 10),
+                "hub.lease_seconds": str(int(self._REQUESTED_LEASE.total_seconds())),
                 "hub.verify_token": "",
             },
             headers={"Content-type": "application/x-www-form-urlencoded"},
@@ -791,9 +793,8 @@ class AsyncYouTubeNotifier:
             if lease_time is None:
                 raise SubscribeError("Hub callback was not received", channel_id)
 
-            refresh = datetime.now(tz=UTC) + timedelta(
-                seconds=lease_time
-                * random.uniform(self._RESUBSCRIBE_MIN_FRAC, self._RESUBSCRIBE_MAX_FRAC)  # noqa: S311
+            refresh = datetime.now(tz=UTC) + lease_time * random.uniform(  # noqa: S311
+                self._RESUBSCRIBE_MIN_FRAC, self._RESUBSCRIBE_MAX_FRAC
             )
 
             self._active_subscriptions[channel_id] = refresh
@@ -846,16 +847,19 @@ class AsyncYouTubeNotifier:
             return Response(status_code=HTTPStatus.BAD_REQUEST)
 
         if mode == "subscribe":
-            lease_seconds = int(
-                request.query_params.get("hub.lease_seconds", 2 * 86400)
+            lease_seconds = request.query_params.get("hub.lease_seconds")
+            lease_time = (
+                self._FALLBACK_LEASE
+                if lease_seconds is None
+                else timedelta(seconds=int(lease_seconds))
             )
 
             self._logger.debug(
-                "Received subscribe hub callback for topic %s: lease time is %d sec",
+                "Received subscribe hub callback for topic %s: lease time is %s",
                 topic,
-                lease_seconds,
+                lease_time,
             )
-            self._hub_lease_time[topic] = lease_seconds
+            self._hub_lease_time[topic] = lease_time
 
         else:
             self._logger.debug(
