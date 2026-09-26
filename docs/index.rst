@@ -140,9 +140,15 @@ to find somewhere to start.
 
 Thanks to everyone who has contributed to ``ytnoti``!
 
-.. image:: https://contrib.rocks/image?repo=SeoulSKY/ytnoti
-   :target: https://github.com/SeoulSKY/ytnoti/graphs/contributors
-   :alt: Contributors
+.. only:: html
+
+   .. image:: https://contrib.rocks/image?repo=SeoulSKY/ytnoti
+      :target: https://github.com/SeoulSKY/ytnoti/graphs/contributors
+      :alt: Contributors
+
+.. only:: not html
+
+   See the `contributors graph <https://github.com/SeoulSKY/ytnoti/graphs/contributors>`_ on GitHub.
 
 
 📄 License
