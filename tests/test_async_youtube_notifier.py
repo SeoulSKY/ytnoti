@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+import urllib
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import PropertyMock, patch
@@ -14,7 +15,7 @@ from httpx import ConnectError, ReadTimeout, Request, Response
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier
-from ytnoti.errors import HTTPError
+from ytnoti.errors import HTTPError, SubscribeError
 from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
 
 channel_ids = [
@@ -29,6 +30,8 @@ CHANNEL_ID_VERIFICATION_URL = re.compile("https://www.youtube.com/channel/.*")
 REQUEST_URL = "https://pubsubhubbub.appspot.com"
 
 # ruff: noqa: E501
+
+published_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f+00:00")
 
 xmls = [
     f"""
@@ -47,8 +50,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
     </feed>
     """,
@@ -71,8 +74,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
     </feed>
     """,
@@ -92,8 +95,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
       <entry>
         <id>yt:video:VIDEO_ID</id>
@@ -105,8 +108,8 @@ xmls = [
          <name>Channel title</name>
          <uri>http://www.youtube.com/channel/{channel_id}</uri>
         </author>
-        <published>2015-03-09T19:05:24.552394234+00:00</published>
-        <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+        <published>{published_at}</published>
+        <updated>{published_at}</updated>
       </entry>
     </feed>
     """,
@@ -122,6 +125,39 @@ xmls = [
     </feed>
     """,
 ]
+
+
+def get_feed(*, published: datetime, updated: datetime, title: str) -> str:
+    """Create the body of a push notification for a video.
+
+    :param published: The time the video was published.
+    :param updated: The time the entry of the video was last updated.
+    :param title: The title of the video.
+    :return: The XML body of the notification.
+    """
+    fmt = "%Y-%m-%dT%H:%M:%S+00:00"
+
+    return f"""
+    <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
+      <link rel="hub" href="https://pubsubhubbub.appspot.com"/>
+      <link rel="self" href="https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}"/>
+      <title>YouTube video feed</title>
+      <updated>{updated.strftime(fmt)}</updated>
+      <entry>
+        <id>yt:video:VIDEO_ID</id>
+        <yt:videoId>VIDEO_ID</yt:videoId>
+        <yt:channelId>{channel_id}</yt:channelId>
+        <title>{title}</title>
+        <link rel="alternate" href="http://www.youtube.com/watch?v=VIDEO_ID"/>
+        <author>
+         <name>Channel title</name>
+         <uri>http://www.youtube.com/channel/{channel_id}</uri>
+        </author>
+        <published>{published.strftime(fmt)}</published>
+        <updated>{updated.strftime(fmt)}</updated>
+      </entry>
+    </feed>
+    """
 
 
 @pytest.fixture
@@ -171,28 +207,58 @@ def test_callback_url() -> None:
     assert notifier.callback_url is not None
 
 
+def _call_callback(client: TestClient, request: Request) -> Response:
+    qs = urllib.parse.parse_qs(request.content.decode("utf-8"))
+    response = client.get(
+        CALLBACK_URL,
+        params={
+            "hub.challenge": 1,
+            "hub.topic": qs["hub.topic"][0],
+            "hub.mode": qs["hub.mode"][0],
+            "hub.lease_seconds": qs.get("hub.lease_seconds", [86400 * 5])[0],
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+    return Response(HTTPStatus.NO_CONTENT)
+
+
 @respx.mock
 @pytest.mark.asyncio
-async def test_subscribe() -> None:
+async def test_subscribe(notifier: AsyncYouTubeNotifier) -> None:
     """Test the subscribe method of the AsyncYouTubeNotifier class."""
-    notifier = AsyncYouTubeNotifier()
+    client = TestClient(notifier._app)
+
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
+    idle_notifier = AsyncYouTubeNotifier()
 
     respx.head(CHANNEL_ID_VERIFICATION_URL)
     route = respx.post(REQUEST_URL)
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    route.mock(side_effect=do_callback)
 
-    await notifier.subscribe(channel_ids)
+    await idle_notifier.subscribe(channel_ids)
 
     assert route.call_count == 0, "Should not subscribe before running the notifier"
 
     route.reset()
 
-    notifier = AsyncYouTubeNotifier()
-
     type(notifier).is_ready = PropertyMock(return_value=True)
     await notifier.subscribe(channel_ids)
 
     assert route.call_count == len(channel_ids), "Should subscribe to each channel ID"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_subscribe_fail(notifier: AsyncYouTubeNotifier) -> None:
+    """Test the subscribe method of the AsyncYouTubeNotifier class."""
+    respx.head(CHANNEL_ID_VERIFICATION_URL)
+    route = respx.post(REQUEST_URL)
+    route.mock(Response(HTTPStatus.NO_CONTENT))
+
+    with pytest.raises(SubscribeError, check=lambda e: bool(str(e))):
+        await notifier.subscribe(channel_ids)
 
     route.reset()
 
@@ -207,12 +273,20 @@ async def test_subscribe() -> None:
 @pytest.mark.asyncio
 async def test_unsubscribe(notifier: AsyncYouTubeNotifier) -> None:
     """Test the unsubscribe method of the AsyncYouTubeNotifier class."""
+    client = TestClient(notifier._app)
+
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
     respx.head(CHANNEL_ID_VERIFICATION_URL)
     route = respx.post(REQUEST_URL)
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    route.mock(side_effect=do_callback)
 
     type(notifier).is_ready = PropertyMock(return_value=True)
 
+    expiry = datetime.now(tz=UTC) + timedelta(days=1)
+    for channel_id in channel_ids:
+        notifier._active_subscriptions[channel_id] = expiry
     notifier._subscribed_ids.update(channel_ids)
     await notifier.unsubscribe(channel_ids)
 
@@ -500,7 +574,10 @@ def test_get(notifier: AsyncYouTubeNotifier) -> None:
     response = client.get(CALLBACK_URL)
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
-    response = client.get(CALLBACK_URL, params={"hub.challenge": 1})
+    response = client.get(
+        CALLBACK_URL,
+        params={"hub.challenge": 1, "hub.topic": "foo", "hub.mode": "subscribe"},
+    )
     assert response.status_code == HTTPStatus.OK
 
 
@@ -515,17 +592,29 @@ def test_parse_timestamp(notifier: AsyncYouTubeNotifier) -> None:
 @pytest.mark.asyncio
 async def test_request(notifier: AsyncYouTubeNotifier) -> None:
     """Test the request method of the AsyncYouTubeNotifier class."""
-    route = respx.post(REQUEST_URL)
+    client = TestClient(notifier._app)
 
-    route.mock(Response(HTTPStatus.NO_CONTENT))
+    def do_callback(request: Request) -> Response:
+        return _call_callback(client, request)
+
+    route = respx.post(REQUEST_URL)
+    route.mock(side_effect=do_callback)
     await notifier._request([channel_id])
+
+    assert route.call_count == 1, "Should call callback on first _request()"
+    await notifier._request([channel_id])
+    assert route.call_count == 1, (
+        "Should not call callback on repeat _request() before expiry"
+    )
+
+    notifier._active_subscriptions = {}
 
     route.mock(Response(HTTPStatus.BAD_REQUEST))
     with pytest.raises(HTTPError):
         await notifier._request([channel_id])
 
     type(notifier).is_ready = PropertyMock(return_value=False)
-    route.mock(Response(HTTPStatus.CONFLICT))
+    route.mock(Response(HTTPStatus.CONFLICT), side_effect=None)
     with pytest.raises(ConnectionError):
         await notifier._request([channel_id])
 
@@ -541,12 +630,13 @@ async def test_request_continues_after_failure(
 ) -> None:
     """Test that the request method requests every channel even if some fail."""
     requested = []
+    client = TestClient(notifier._app)
 
     def side_effect(request: Request) -> Response:
         requested.append(request)
         if len(requested) == 1:
             raise ReadTimeout("Timed out", request=request)
-        return Response(HTTPStatus.NO_CONTENT)
+        return _call_callback(client, request)
 
     respx.post(REQUEST_URL).mock(side_effect=side_effect)
 
@@ -614,46 +704,99 @@ def test_post(notifier: AsyncYouTubeNotifier) -> None:
     notifier._password = password
 
 
-@pytest.mark.asyncio
-async def test_classify(notifier: AsyncYouTubeNotifier) -> None:
+def test_classify(notifier: AsyncYouTubeNotifier) -> None:
     """Test the classify method of the AsyncYouTubeNotifier class."""
-    upload_timestamp = Timestamp(
-        published=datetime.now(UTC),
-        updated=datetime.now(UTC)
-        + AsyncYouTubeNotifier._UPLOAD_TIMEDELTA_THRESHOLD
-        - timedelta(seconds=1),
-    )
+    published = datetime.now(UTC)
 
-    edit_timestamp = Timestamp(
-        published=datetime.now(UTC),
-        updated=datetime.now(UTC)
-        + AsyncYouTubeNotifier._UPLOAD_TIMEDELTA_THRESHOLD
-        + timedelta(seconds=1),
+    channel = Channel(
+        id="CHANNEL_ID",
+        name="Channel title",
+        url="http://www.youtube.com/channel/CHANNEL_ID",
     )
 
     video = Video(
         id="VIDEO_ID",
         title="Video title",
         url="http://www.youtube.com/watch?v=VIDEO_ID",
-        timestamp=upload_timestamp,
-        channel=Channel(
-            id="CHANNEL_ID",
-            name="Channel title",
-            url="http://www.youtube.com/channel/CHANNEL_ID",
-        ),
+        timestamp=Timestamp(published=published, updated=published),
+        channel=channel,
     )
 
-    video.timestamp = upload_timestamp
-    assert await notifier._classify(video) == "upload"
-    video.timestamp = edit_timestamp
-    assert await notifier._classify(video) == "edit"
+    assert notifier._classify(video, in_history=False) == "upload"
 
-    await notifier._video_history.add(video)
+    # YouTube keeps moving the updated timestamp away from the published one
+    # while it settles a new video, which says nothing about it being an edit.
+    video.timestamp.updated = published + timedelta(minutes=8)
+    assert notifier._classify(video, in_history=False) == "upload"
 
-    video.timestamp = upload_timestamp
-    assert await notifier._classify(video) == "edit"
-    video.timestamp = edit_timestamp
-    assert await notifier._classify(video) == "edit"
+    # Every notification after the first one is an edit.
+    assert notifier._classify(video, in_history=True) == "edit"
+
+    # A video the history has never seen is an edit if it is too old to have
+    # just been uploaded, since the history cannot reach back far enough.
+    old = Video(
+        id="OLD_VIDEO_ID",
+        title="Old video title",
+        url="http://www.youtube.com/watch?v=OLD_VIDEO_ID",
+        timestamp=Timestamp(
+            published=published
+            - AsyncYouTubeNotifier._UPLOAD_PUBLISHED_THRESHOLD
+            - timedelta(seconds=1),
+            updated=published,
+        ),
+        channel=channel,
+    )
+
+    assert notifier._classify(old, in_history=False) == "edit"
+
+
+def test_post_classifies_the_first_notification_as_an_upload(
+    notifier: AsyncYouTubeNotifier,
+) -> None:
+    """Test that a new video is an upload however late YouTube updated it."""
+    notifier._subscribed_ids.add(channel_id)
+
+    uploads: list[Video] = []
+    edits: list[Video] = []
+
+    @notifier.upload()
+    async def listener(video: Video) -> None:
+        uploads.append(video)
+
+    @notifier.edit()
+    async def listener(video: Video) -> None:
+        edits.append(video)
+
+    # The hub sent the same new video four times, the last two of them after
+    # its title had been edited.
+    published = datetime.now(UTC)
+    notifications = [
+        (timedelta(minutes=2), "Video title"),
+        (timedelta(minutes=5), "Video title"),
+        (timedelta(minutes=16), "Edited video title"),
+        (timedelta(minutes=16), "Edited video title"),
+    ]
+
+    client = TestClient(notifier._app)
+    with patch.object(
+        notifier._video_history, "add", wraps=notifier._video_history.add
+    ) as mock_add:
+        for delay, title in notifications:
+            response = client.post(
+                CALLBACK_URL,
+                headers={"Content-Type": "application/xml"},
+                content=get_feed(
+                    published=published, updated=published + delay, title=title
+                ),
+            )
+            assert response.status_code == HTTPStatus.NO_CONTENT
+
+        # The video is recorded once, however many times the hub resends it, so
+        # a history that evicts its oldest entries keeps holding as many videos.
+        mock_add.assert_awaited_once()
+
+    assert len(uploads) == 1
+    assert len(edits) == len(notifications) - 1
 
 
 @pytest.mark.asyncio

@@ -109,16 +109,21 @@ maintainer asks for a release.
    so it stays a lightweight tag with an empty message like every existing
    one — then push `main` and the tag.
 4. Create the GitHub release from the tag with
-   `gh release create vX.Y.Z --notes-file <file>`. The body is the changelog's
-   section for that version, with its `~~~` subsection underlines turned into
-   `#` headings and the `**Full Changelog**` compare link kept.
-5. Blank the release title, which every earlier release has as an empty
-   string: `gh api --method PATCH repos/SeoulSKY/ytnoti/releases/<id> -f
-   name=''`, with the id from
-   `gh api repos/SeoulSKY/ytnoti/releases/tags/vX.Y.Z --jq .id`. Passing
-   `--title ""` to `gh release create` does **not** do this — gh drops the
-   empty flag, the name stays null, and GitHub then titles the release with
-   the tagged commit's subject line instead of the tag.
+   `gh release create vX.Y.Z --title vX.Y.Z --notes-file <file>`. The body is
+   the changelog's section for that version, with its `~~~` subsection
+   underlines turned into `#` headings and the `**Full Changelog**` compare
+   link kept.
+5. Confirm the release is titled `vX.Y.Z` and nothing else, with
+   `gh api repos/SeoulSKY/ytnoti/releases/tags/vX.Y.Z --jq .name`. Set it
+   explicitly, as step 4 does, rather than leaving it unset: GitHub renders a
+   release with no title as the tag followed by the tagged commit's subject —
+   "v3.0.3: chore: bump up the version to 3.0.3" — which is never what the
+   release should say. To repair one that already reads that way,
+   `gh api --method PATCH repos/SeoulSKY/ytnoti/releases/<id> -f name=vX.Y.Z`,
+   with the id from `gh api repos/SeoulSKY/ytnoti/releases/tags/vX.Y.Z --jq
+   .id`. Note that older releases store an empty title and still display
+   correctly; leave them alone, and do not copy them by passing `--title ""`,
+   which gh drops.
 
 Creating the release is what publishes. `.github/workflows/pypi.yml` fires on
 `release: created`, runs `uv sync --dev --frozen`, `uv build` and

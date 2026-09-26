@@ -8,6 +8,12 @@ authors = [
 ]
 license = { text = "MIT" }
 urls = { "Homepage" = "https://github.com/SeoulSKY/ytnoti" }
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 requires-python = ">=3.11"
 dependencies = [
     "typing_extensions; python_version < '3.12'",

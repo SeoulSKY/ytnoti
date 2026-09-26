@@ -15,6 +15,7 @@ __all__ = [
 import asyncio
 import hmac
 import logging
+import random
 import secrets
 import signal
 import string
@@ -31,7 +32,7 @@ from collections.abc import (
     Iterator,
 )
 from contextlib import asynccontextmanager, contextmanager, suppress
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from pyexpat import ExpatError
 from threading import Thread
@@ -48,7 +49,7 @@ from pyngrok.exception import PyngrokNgrokURLError
 from starlette.routing import Route
 from uvicorn import Config, Server
 
-from ytnoti.errors import HTTPError
+from ytnoti.errors import HTTPError, SubscribeError
 from ytnoti.models.history import InMemoryVideoHistory, VideoHistory
 from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
 from ytnoti.types import AnyListener, DeleteListener, EditListener, UploadListener
@@ -72,10 +73,15 @@ class AsyncYouTubeNotifier:
     """
 
     _ALL_LISTENER_KEY = "_all"
-    _UPLOAD_TIMEDELTA_THRESHOLD = timedelta(seconds=20)
+    _UPLOAD_PUBLISHED_THRESHOLD = timedelta(minutes=30)
     _HTTP_TIMEOUT = 30
-    _RETRY_INITIAL_INTERVAL = timedelta(minutes=1)
+    _RETRY_INITIAL_INTERVAL = timedelta(minutes=2)
     _RETRY_MAX_EXPONENT = 30
+    # Check for re-subscriptions every 30 minutes
+    _RESUBSCRIBE_INTERVAL = timedelta(minutes=30)
+    # Re-subscribe at 70% to 80% of the lease time
+    _RESUBSCRIBE_MIN_FRAC = 0.7
+    _RESUBSCRIBE_MAX_FRAC = 0.8
 
     @override
     def __init__(
@@ -122,6 +128,8 @@ class AsyncYouTubeNotifier:
         self._server_ready_event: asyncio.Event = asyncio.Event()
         self._startup_task: Task[None] | None = None
         self._lock = asyncio.Lock()
+        self._hub_lease_time: dict[str, int] = {}
+        self._active_subscriptions: dict[str, datetime] = {}
 
     @property
     def callback_url(self) -> str | None:
@@ -428,17 +436,18 @@ class AsyncYouTubeNotifier:
             waiting for the server to be available.
         """
         while not predicate or predicate():
-            await asyncio.sleep(0.1)
-
             try:
                 async with AsyncClient(timeout=self._HTTP_TIMEOUT) as client:
                     response = await client.head(
-                        callback_url, params={"hub.challenge": "1"}
+                        callback_url, params={"startup_test": "1"}
                     )
                     if response.status_code == HTTPStatus.OK:
                         break
             except (ConnectError, TimeoutException):
-                continue
+                pass
+
+            self._logger.info("Callback URL test failed, retrying after 0.5s...")
+            await asyncio.sleep(0.5)
 
         self._server_ready_event.set()
 
@@ -447,7 +456,7 @@ class AsyncYouTubeNotifier:
 
         # The first run happens inside the repeated task, so that a failure of it
         # is retried instead of leaving the notifier without any subscription.
-        await self._repeat_task(task, timedelta(days=1))
+        await self._repeat_task(task, self._RESUBSCRIBE_INTERVAL)
 
     def _setup_notifier(
         self,
@@ -728,17 +737,26 @@ class AsyncYouTubeNotifier:
             listening.
         :raises HTTPError: If failed to subscribe or unsubscribe due to an HTTP error.
         """
+        if mode == "subscribe":
+            expiry = self._active_subscriptions.get(channel_id, None)
+            if expiry is not None and expiry > datetime.now(tz=UTC):
+                # Already subscribed and re-subscription not due
+                return
+
         self._logger.debug("Sending %s request for channel: %s", mode, channel_id)
+
+        topic = f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}"
+        self._hub_lease_time.pop(topic, None)
 
         response = await client.post(
             "https://pubsubhubbub.appspot.com",
             data={
                 "hub.mode": mode,
-                "hub.topic": f"https://www.youtube.com/xml/feeds/videos.xml?channel_id={channel_id}",
+                "hub.topic": topic,
                 "hub.callback": self._callback_url,
                 "hub.verify": "sync",
                 "hub.secret": self._password,
-                "hub.lease_seconds": "",
+                "hub.lease_seconds": str(86400 * 10),
                 "hub.verify_token": "",
             },
             headers={"Content-type": "application/x-www-form-urlencoded"},
@@ -760,7 +778,30 @@ class AsyncYouTubeNotifier:
                 f"Failed to {mode} channel: {channel_id}", response.status_code
             )
 
-        self._logger.info("Successfully %sd channel: %s", mode, channel_id)
+        if mode == "subscribe":
+            lease_time = self._hub_lease_time.pop(topic, None)
+
+            if lease_time is None:
+                raise SubscribeError("Hub callback was not received", channel_id)
+
+            refresh = datetime.now(tz=UTC) + timedelta(
+                seconds=lease_time
+                * random.uniform(self._RESUBSCRIBE_MIN_FRAC, self._RESUBSCRIBE_MAX_FRAC)  # noqa: S311
+            )
+
+            self._active_subscriptions[channel_id] = refresh
+
+            self._logger.info(
+                "Successfully subscribed channel: %s (next refresh: %s)",
+                channel_id,
+                refresh.isoformat(),
+            )
+
+        if mode == "unsubscribe":
+            if channel_id in self._active_subscriptions:
+                self._active_subscriptions.pop(channel_id, None)
+
+            self._logger.info("Successfully unsubscribed channel: %s", channel_id)
 
     def stop(self) -> None:
         """Gracefully stop the notifier and ngrok (if used).
@@ -781,12 +822,36 @@ class AsyncYouTubeNotifier:
         """Perform a task after the notifier is stopped."""
         self.stop()
 
-    @staticmethod
-    async def _get(request: Request) -> Response:
+    async def _get(self, request: Request) -> Response:
         """Handle a challenge from the Google pubsubhubbub server."""
+        if request.query_params.get("startup_test") is not None:
+            return Response("OK")
+
         challenge = request.query_params.get("hub.challenge")
-        if challenge is None:
+        topic = request.query_params.get("hub.topic")
+        mode = request.query_params.get("hub.mode")
+
+        if challenge is None or topic is None or mode is None:
             return Response(status_code=HTTPStatus.BAD_REQUEST)
+
+        if mode == "subscribe":
+            lease_seconds = int(
+                request.query_params.get("hub.lease_seconds", 2 * 86400)
+            )
+
+            self._logger.debug(
+                "Received subscribe hub callback for topic %s: lease time is %d sec",
+                topic,
+                lease_seconds,
+            )
+            self._hub_lease_time[topic] = lease_seconds
+
+        else:
+            self._logger.debug(
+                "Received unsubscribe hub callback for topic %s",
+                topic,
+            )
+            self._hub_lease_time.pop(topic, None)
 
         return Response(challenge)
 
@@ -873,9 +938,10 @@ class AsyncYouTubeNotifier:
                 )
 
                 async with self._lock:
-                    kind = await self._classify(video)
+                    in_history = await self._video_history.has(video)
+                    kind = self._classify(video, in_history=in_history)
 
-                    if kind == "upload":
+                    if not in_history:
                         await self._video_history.add(video)
 
                 self._logger.debug("Classified video (%s) as %s", video.id, kind)
@@ -894,14 +960,22 @@ class AsyncYouTubeNotifier:
 
         return Response(status_code=HTTPStatus.NO_CONTENT)
 
-    async def _classify(self, video: Video) -> Literal["upload", "edit"]:
-        if await self._video_history.has(video):
+    def _classify(self, video: Video, *, in_history: bool) -> Literal["upload", "edit"]:
+        """Classify a notification as a new upload or an edit of an existing video.
+
+        :param video: The video the notification is about.
+        :param in_history: Whether the video is already in the video history.
+        :return: "upload" if this is the first notification for the video,
+            "edit" otherwise.
+        """
+        if in_history:
             return "edit"
 
-        if (
-            video.timestamp.updated - video.timestamp.published
-            <= self._UPLOAD_TIMEDELTA_THRESHOLD
-        ):
+        # The video is not in the history, so this is either its first
+        # notification or the history no longer reaches back far enough to hold
+        # it. Only a video published recently can still be an upload.
+        age = datetime.now(UTC) - video.timestamp.published
+        if age <= self._UPLOAD_PUBLISHED_THRESHOLD:
             return "upload"
 
         return "edit"

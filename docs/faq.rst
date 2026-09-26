@@ -38,6 +38,6 @@ This can occur due to limitations in the information provided by the YouTube web
 
 By default, the library keeps track of video IDs in memory to identify uploaded videos. If a video ID is already in memory, the library will trigger the edit listeners.
 
-As a result, if you restart your program, previously uploaded videos are no longer in memory. When the webhook notifies your application, it may incorrectly trigger an upload event even for edited videos.
+As a result, if you restart your program, previously uploaded videos are no longer in memory. When the webhook notifies your application, it may incorrectly trigger an upload event even for edited videos. This is limited to videos that YouTube published within the last 30 minutes, as anything older is always treated as an edit.
 
 To maintain persistent memory of video IDs across restarts, provide an instance of ``FileVideoHistory`` to the constructor of ``(Async)YoutubeNotifier``.
