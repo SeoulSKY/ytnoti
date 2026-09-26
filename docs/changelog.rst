@@ -16,6 +16,7 @@ Fixes
 * Fix that every subscription was renewed once a day no matter how long the hub had granted it for, and that a failed renewal requested every channel again. Each channel is now renewed once 70 to 80 percent of the lease the hub actually granted has passed, and a retry requests only the channels that failed. Thanks to `@hoshinolina <https://github.com/hoshinolina>`__ for `#11 <https://github.com/SeoulSKY/ytnoti/pull/11>`__!
 * Request the longest lease the hub allows, 10 days instead of its default of 5, so that a subscription outlasts a longer outage of the hub before it runs out. Thanks to `@hoshinolina <https://github.com/hoshinolina>`__ for `#13 <https://github.com/SeoulSKY/ytnoti/pull/13>`__!
 * Wait 2 minutes instead of 1 before the first retry of a failed subscription, which is the interval the hub asks for when it is overloaded. Thanks to `@hoshinolina <https://github.com/hoshinolina>`__ for `#11 <https://github.com/SeoulSKY/ytnoti/pull/11>`__!
+* Fix that (Async)YouTubeNotifier stopped checking its callback URL on startup when the connection was reset or closed, rather than refused, so it never became ready and ``run_in_background`` never returned. Every connection error is now retried.
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.3...v3.0.4
 

@@ -11,7 +11,14 @@ import pytest
 import respx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import ConnectError, ReadTimeout, Request, Response
+from httpx import (
+    ConnectError,
+    ReadError,
+    ReadTimeout,
+    RemoteProtocolError,
+    Request,
+    Response,
+)
 
 from tests import CALLBACK_URL
 from ytnoti import AsyncYouTubeNotifier
@@ -481,7 +488,13 @@ async def test_on_startup(notifier: AsyncYouTubeNotifier) -> None:
         await notifier._on_startup(callback_url=CALLBACK_URL)
         assert notifier._server_ready_event.is_set()
 
-        route.mock(side_effect=ConnectError)
+        route.mock(
+            side_effect=[
+                ConnectError("refused"),
+                ReadError("reset"),
+                RemoteProtocolError("closed"),
+            ]
+        )
 
         called = 0
 

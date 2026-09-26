@@ -42,7 +42,7 @@ from urllib.parse import urlparse
 import xmltodict
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.routing import APIRoute
-from httpx import AsyncClient, ConnectError, TimeoutException
+from httpx import AsyncClient, TransportError
 from httpx import HTTPError as HTTPXError
 from pyngrok import ngrok
 from pyngrok.exception import PyngrokNgrokURLError
@@ -443,7 +443,7 @@ class AsyncYouTubeNotifier:
                     )
                     if response.status_code == HTTPStatus.OK:
                         break
-            except (ConnectError, TimeoutException):
+            except TransportError:
                 pass
 
             self._logger.info("Callback URL test failed, retrying after 0.5s...")
