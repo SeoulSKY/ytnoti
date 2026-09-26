@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 from fastapi import FastAPI
 
-from tests import CALLBACK_URL
+from tests import CALLBACK_URL, get_free_port
 from ytnoti import AsyncYouTubeNotifier, YouTubeNotifier
 
 channel_ids = [
@@ -41,9 +41,10 @@ def test_run() -> None:
 
 def test_run_in_background() -> None:
     """Test run_in_background method of the YouTubeNotifier class."""
-    notifier = YouTubeNotifier(callback_url=CALLBACK_URL)
+    port = get_free_port()
+    notifier = YouTubeNotifier(callback_url=f"http://127.0.0.1:{port}")
 
-    with notifier.run_in_background():
+    with notifier.run_in_background(host="127.0.0.1", port=port):
         assert notifier.is_ready
 
 

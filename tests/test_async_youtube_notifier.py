@@ -20,7 +20,7 @@ from httpx import (
     Response,
 )
 
-from tests import CALLBACK_URL
+from tests import CALLBACK_URL, get_free_port
 from ytnoti import AsyncYouTubeNotifier
 from ytnoti.errors import HTTPError, SubscribeError
 from ytnoti.models.video import Channel, DeletedVideo, Timestamp, Video
@@ -182,8 +182,9 @@ def notifier() -> AsyncYouTubeNotifier:
 @pytest.mark.asyncio
 async def test_run() -> None:
     """Test run method."""
-    notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
-    task = asyncio.create_task(notifier.run())
+    port = get_free_port()
+    notifier = AsyncYouTubeNotifier(callback_url=f"http://127.0.0.1:{port}")
+    task = asyncio.create_task(notifier.run(host="127.0.0.1", port=port))
 
     await asyncio.sleep(1)
 
@@ -197,10 +198,10 @@ async def test_run() -> None:
 @pytest.mark.asyncio
 async def test_run_in_background() -> None:
     """Test run_in_background method."""
-    notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
+    port = get_free_port()
+    notifier = AsyncYouTubeNotifier(callback_url=f"http://127.0.0.1:{port}")
 
-    async with notifier.run_in_background() as task:
-        await asyncio.sleep(2)
+    async with notifier.run_in_background(host="127.0.0.1", port=port) as task:
         try:
             assert notifier.is_ready
         finally:
