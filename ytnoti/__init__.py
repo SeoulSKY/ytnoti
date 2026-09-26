@@ -829,6 +829,10 @@ class AsyncYouTubeNotifier:
         """Perform a task after the notifier is stopped."""
         self.stop()
 
+        if self._startup_task is not None:
+            self._startup_task.cancel()
+            self._startup_task = None
+
     async def _get(self, request: Request) -> Response:
         """Handle a challenge from the Google pubsubhubbub server."""
         if request.query_params.get("startup_test") is not None:

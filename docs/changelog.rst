@@ -18,6 +18,7 @@ Fixes
 * Wait 2 minutes instead of 1 before the first retry of a failed subscription, which is the interval the hub asks for when it is overloaded. Thanks to `@hoshinolina <https://github.com/hoshinolina>`__ for `#11 <https://github.com/SeoulSKY/ytnoti/pull/11>`__!
 * Fix that (Async)YouTubeNotifier stopped checking its callback URL on startup when the connection was reset or closed, rather than refused, so it never became ready and ``run_in_background`` never returned. Every connection error is now retried.
 * Fix that ``AsyncYouTubeNotifier.run_in_background`` waited forever when the server failed to start. It now raises the server's error, or a ``RuntimeError`` if the server stopped before it was ready without one.
+* Fix that AsyncYouTubeNotifier kept renewing its subscriptions after it was stopped, for as long as its event loop kept running. Stopping it now ends the renewals.
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.3...v3.0.4
 

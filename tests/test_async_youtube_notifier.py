@@ -244,6 +244,19 @@ async def test_run_in_background_stopped() -> None:
                 pytest.fail("The server should not be ready")
 
 
+@pytest.mark.asyncio
+async def test_on_exit_cancels_startup_task(notifier: AsyncYouTubeNotifier) -> None:
+    """Test that the subscriptions stop being renewed once the notifier exits."""
+    startup_task = asyncio.create_task(asyncio.sleep(60))
+    notifier._startup_task = startup_task
+
+    notifier._on_exit()
+    await asyncio.wait([startup_task], timeout=1)
+
+    assert startup_task.cancelled()
+    assert notifier._startup_task is None
+
+
 def test_callback_url() -> None:
     """Test the callback URL configuration."""
     notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
