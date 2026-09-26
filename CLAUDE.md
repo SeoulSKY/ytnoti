@@ -54,8 +54,10 @@ today. Format only the files you touched, never the tree.
 
 ## Things to know before changing the notifier
 
-- **Subscriptions are leases.** The hub grants roughly five days, and
-  `_on_startup` renews every channel once a day through `_repeat_task`. If a
+- **Subscriptions are leases.** The notifier asks for `_REQUESTED_LEASE`
+  (ten days) and records whatever the hub actually grants. `_on_startup`
+  checks every `_RESUBSCRIBE_INTERVAL` through `_repeat_task` and renews a
+  channel once it is 70% to 80% of the way through its lease. If a
   renewal path can fail silently or be skipped, notifications stop days later
   with nothing in the log — treat that loop as load-bearing.
 - **`hub.verify=sync` makes subscribing slow.** The hub calls back into this
