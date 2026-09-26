@@ -47,3 +47,8 @@ docs = [
     "sphinx>=8.2.3",
     "furo>=2025.9.25",
 ]
+
+[tool.pytest.ini_options]
+# Print every thread's stack when a test runs this long, so that a hung test
+# names itself instead of stalling the run in silence.
+faulthandler_timeout = 60
