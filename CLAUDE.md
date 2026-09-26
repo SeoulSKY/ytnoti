@@ -86,6 +86,13 @@ refactors, tests and tooling.
   saw go wrong and what happens now, never which function changed. Wrap code
   in RST double-backtick literals, and name both classes at once the way the
   existing entries do, as (Async)YouTubeNotifier.
+- A change that came in through someone else's pull request credits them at
+  the end of its bullet, on the same line:
+  ``Thanks to `@login <https://github.com/login>`__ for `#N <https://github.com/SeoulSKY/ytnoti/pull/N>`__!``
+  Take the login from `gh pr view N --json author`, and credit every bullet
+  the PR produced, not only the first. The maintainer's own work gets no
+  credit line. Keep the double underscore: an anonymous link is what lets the
+  same contributor appear in many bullets without a Sphinx warning.
 - Close the entry with a blank line and
   `**Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/vPREV...vNEW`.
 - A release that needs migration steps ends with a `:doc:` link to `migration`
@@ -111,8 +118,9 @@ maintainer asks for a release.
 4. Create the GitHub release from the tag with
    `gh release create vX.Y.Z --title vX.Y.Z --notes-file <file>`. The body is
    the changelog's section for that version, with its `~~~` subsection
-   underlines turned into `#` headings and the `**Full Changelog**` compare
-   link kept.
+   underlines turned into `#` headings, each credit link reduced to its bare
+   `@login` and `#N` (GitHub links them itself and lists the contributor on
+   the release), and the `**Full Changelog**` compare link kept.
 5. Confirm the release is titled `vX.Y.Z` and nothing else, with
    `gh api repos/SeoulSKY/ytnoti/releases/tags/vX.Y.Z --jq .name`. Set it
    explicitly, as step 4 does, rather than leaving it unset: GitHub renders a
