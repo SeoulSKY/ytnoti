@@ -10,6 +10,8 @@ on:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    # The suite takes seconds, so a run this long is a hung test, not a slow one.
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
