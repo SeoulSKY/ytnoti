@@ -17,6 +17,7 @@ Fixes
 * Request the longest lease the hub allows, 10 days instead of its default of 5, so that a subscription outlasts a longer outage of the hub before it runs out. Thanks to `@hoshinolina <https://github.com/hoshinolina>`__ for `#13 <https://github.com/SeoulSKY/ytnoti/pull/13>`__!
 * Wait 2 minutes instead of 1 before the first retry of a failed subscription, which is the interval the hub asks for when it is overloaded. Thanks to `@hoshinolina <https://github.com/hoshinolina>`__ for `#11 <https://github.com/SeoulSKY/ytnoti/pull/11>`__!
 * Fix that (Async)YouTubeNotifier stopped checking its callback URL on startup when the connection was reset or closed, rather than refused, so it never became ready and ``run_in_background`` never returned. Every connection error is now retried.
+* Fix that ``AsyncYouTubeNotifier.run_in_background`` waited forever when the server failed to start. It now raises the server's error, or a ``RuntimeError`` if the server stopped before it was ready without one.
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.3...v3.0.4
 

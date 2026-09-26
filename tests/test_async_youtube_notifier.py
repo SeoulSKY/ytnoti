@@ -5,7 +5,7 @@ import re
 import urllib
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import PropertyMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pytest
 import respx
@@ -206,6 +206,42 @@ async def test_run_in_background() -> None:
         finally:
             notifier.stop()
             await task
+
+
+@pytest.mark.asyncio
+async def test_run_in_background_error() -> None:
+    """Test that run_in_background raises the error of a server that fails to
+    start instead of waiting for it to be ready forever.
+    """
+    notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
+    timeout = asyncio.timeout(5)
+
+    with (
+        patch.object(notifier, "_setup_notifier", side_effect=RuntimeError("boom")),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        async with timeout, notifier.run_in_background():
+            pytest.fail("The server should not be ready")
+
+    assert not timeout.expired()
+
+
+@pytest.mark.asyncio
+async def test_run_in_background_stopped() -> None:
+    """Test that run_in_background raises when the server stops without an error
+    before it is ready.
+    """
+    notifier = AsyncYouTubeNotifier(callback_url=CALLBACK_URL)
+
+    with (
+        patch("ytnoti.Server") as mock_server,
+        patch.object(notifier, "_setup_notifier"),
+    ):
+        mock_server.return_value.serve = AsyncMock()
+
+        with pytest.raises(RuntimeError, match="stopped before it was ready"):
+            async with asyncio.timeout(5), notifier.run_in_background():
+                pytest.fail("The server should not be ready")
 
 
 def test_callback_url() -> None:

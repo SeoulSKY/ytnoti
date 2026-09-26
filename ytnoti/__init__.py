@@ -609,14 +609,21 @@ class AsyncYouTubeNotifier:
         :param app: The FastAPI application to use for serving the server.
         :param log_level: The log level to use for the server.
         :param configs: Additional configurations to pass to the server.
+        :raises RuntimeError: If the server stops before it is ready.
         """
         task = asyncio.create_task(
             self.run(host=host, port=port, app=app, log_level=log_level, **configs)
         )
+        ready = asyncio.create_task(self._server_ready_event.wait())
         try:
-            await self._server_ready_event.wait()
+            await asyncio.wait((task, ready), return_when=asyncio.FIRST_COMPLETED)
+            if not ready.done():
+                await task
+                raise RuntimeError("Server stopped before it was ready")
+
             yield task
         finally:
+            ready.cancel()
             self._on_exit()
             await task
 
