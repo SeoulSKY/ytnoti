@@ -7,7 +7,6 @@ v3.0.4
 Fixes
 ~~~~~
 
-* Fix that (Async)YouTubeNotifier rejected valid YouTube notification timestamps using ``Z`` or a negative UTC offset, so those notifications failed with a server error. All RFC 3339 timestamp representations are now parsed, including fractional seconds.
 * Fix that a newly uploaded video was often reported as an edit instead of an upload, so the upload listeners never ran for it. Whether a video is new is now decided by whether (Async)YouTubeNotifier has already seen it, rather than by how far apart YouTube set its published and updated times, which for a new video are routinely minutes apart.
 * Fix that only the videos reported as uploads were recorded in the ``VideoHistory``, which let the hub resending the same video be reported as an upload again. Every video is now recorded the first time it is seen.
 * Fix that ``FileVideoHistory`` appended a video to its file every time it was added, so repeatedly adding the same video pushed the other videos out and made the history hold fewer of them than ``num_videos``. Adding a video it already holds now has no effect, as it already did for ``InMemoryVideoHistory``.
@@ -20,6 +19,7 @@ Fixes
 * Fix that (Async)YouTubeNotifier stopped checking its callback URL on startup when the connection was reset or closed, rather than refused, so it never became ready and ``run_in_background`` never returned. Every connection error is now retried.
 * Fix that ``AsyncYouTubeNotifier.run_in_background`` waited forever when the server failed to start. It now raises the server's error, or a ``RuntimeError`` if the server stopped before it was ready without one.
 * Fix that AsyncYouTubeNotifier kept renewing its subscriptions after it was stopped, for as long as its event loop kept running. Stopping it now ends the renewals.
+* Parse notification timestamps with any UTC offset rather than assuming YouTube always writes it as ``+00:00``, so a notification whose timestamps use ``Z`` or a negative offset is no longer rejected with a server error. The timestamps handed to listeners now also keep the fractional seconds YouTube sends, to the microsecond, instead of dropping them. Thanks to `@SliverKeigo <https://github.com/SliverKeigo>`__ for `#12 <https://github.com/SeoulSKY/ytnoti/pull/12>`__!
 
 **Full Changelog**: https://github.com/SeoulSKY/ytnoti/compare/v3.0.3...v3.0.4
 
