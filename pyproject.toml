@@ -7,7 +7,7 @@ authors = [
     { name = "SeoulSKY", email = "contact@seoulsky.dev" }
 ]
 license = { text = "MIT" }
-urls = { "Homepage" = "https://github.com/SeoulSKY/ytnoti" }
+urls = { "Homepage" = "https://github.com/SeoulSKY/ytnoti", "Author" = "https://www.seoulsky.dev" }
 classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
