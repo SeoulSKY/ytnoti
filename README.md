@@ -136,3 +136,5 @@ Thanks to everyone who has contributed to `ytnoti`!
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/SeoulSKY/ytnoti/blob/main/LICENSE.md) file for details.
+
+Made by [SeoulSKY](https://www.seoulsky.dev).
